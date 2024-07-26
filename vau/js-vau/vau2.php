@@ -41,12 +41,12 @@ function listToArray($xs)
     return $result;
 };
 
-function arrayToList(a, rightmost) {
-    var result = rightmost || null;
-    for (var i = a.length - 1; i >= 0; i--) {
-        result = new Vau.Pair(a[i], result);
+function arrayToList($a, $rightmost) {
+    $result = $rightmost ?? null;
+    for ($i = $a->length - 1; $i >= 0; $i--) {
+        $result = new Pair($a[$i], $result);
     }
-    return result;
+    return $result;
 };
 
 function read($str)
@@ -65,48 +65,49 @@ REG;
     $sym_re = /**/ "/^[-!@$%^&*_=+:<>/?a-zA-Z][-!@$%^&*_=+:<>/?a-zA-Z0-9]*/";
     // Those /**/ comments are to unconfuse emacs' lexer.
 
-    function probe(re) {
-        match = str.match(re);
-        if (match) {
-            match = match[0];
-            str = str.substring(match.length);
+    $probe = function($re) use ($str) {
+        $match = null;
+        preg_match($re, $str, $match);
+        if ($match) {
+            $match = $match[0];
+            $str = substr($str, strlen($match));
             return true;
         } else {
             return false;
         }
     }
 
-    function emit(v) {
-        if (stack !== null) {
-            stack.car = new Vau.Pair(v, stack.car);
+    $emit = function($v) {
+        if ($stack !== null) {
+            $stack->car = new Pair($v, $stack->car);
         } else {
-            result = v;
+            $result = $v;
         }
     }
 
-    function stackPush(closer) {
-        str = str.substring(1);
-        stack = new Vau.Pair(null, stack);
-        closers = new Vau.Pair(closer, closers);
+    $stackPush = function($closer) use (&$str, $stack, $closers) {
+        $str = substr($str, 1);
+        $stack = new Pair(null, $stack);
+        $closers = new Pair($closer, $closers);
     }
 
-    function badInput() {
-        throw {message: "Illegal input", str: str};
+    $badInput = function() {
+        throw new Exception("Illegal input: " . $str};
     }
 
-    while (str && (result === undefined)) {
-        if (probe(ws_re)) {
-        } else if (probe(num_re)) {
-            emit(+match); // converts to a number (!!!)
-        } else if (probe(kw_re)) {
-            switch (match) {
-                case "#t": emit(true); break;
-                case "#f": emit(false); break;
-                default: emit(new Vau.Keyword(match)); break;
+    while ($str && ($result === null)) {
+        if ($probe($ws_re)) {
+        } else if ($probe($num_re)) {
+            $emit(+$match); // converts to a number (!!!)
+        } else if ($probe($kw_re)) {
+            switch ($match) {
+                case "#t": $emit(true); break;
+                case "#f": $emit(false); break;
+                default: $emit(new Keyword($match)); break;
             }
-        } else if (probe(str_re)) {
-            var raw = match.substring(1, match.length - 1);
-            emit(raw.replace(/\\("|\\)/g, function (wholematch, escaped) { return escaped; }));
+        } else if ($probe($str_re)) {
+            $raw = $match.substring(1, match.length - 1);
+            $emit($raw.replace(/\\("|\\)/g, function (wholematch, escaped) { return escaped; }));
         } else if (probe(sym_re)) {
             emit(new Vau.Symbol(match));
         } else if (str.charAt(0) === '(') {
