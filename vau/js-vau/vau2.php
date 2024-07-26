@@ -1,5 +1,8 @@
 <?php
 
+//---------------------------------------------------------------------------
+// Data structures, utilities, and reader
+
 define("UNDEFINED", -99999);
 
 class Symbol
@@ -150,5 +153,39 @@ REG;
     return [$result, $str];
 }
 
+//---------------------------------------------------------------------------
+// Evaluator core, Operatives, Applicatives, Primitives
+
+function eval($exp, $env) {
+    $vm = new VM($exp, $env);
+    return $vm->run();
+}
+
+class VM
+{
+    public $a = null;
+    public $k = null;
+    function __construct($exp, $env)
+    {
+        $this->pushEval($exp, $env);
+    }
+
+    function pushEval($exp, $env)
+    {
+        $this->a = $exp;
+        $this->k = new KEval($env, $this->k);
+    }
+
+    function run()
+    {
+        while ($this->k) {
+            $frame = $this->k;
+            $this->k = "deliberately undefined continuation frame";
+            $frame->invoke($this);
+        }
+        return $this->a;
+    }
+}
+
+
 $res = read("(+ 1 1)");
-var_dump($res);
