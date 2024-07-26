@@ -1,5 +1,7 @@
 <?php
 
+define("UNDEFINED", -99999);
+
 class Symbol
 {
     public $name;
@@ -53,19 +55,27 @@ function read($str)
 {
     $stack = null;
     $closers = null;
-    $result = undefined;
+    $result = UNDEFINED;
     $match;
 
-    $ws_re = "/^(\s+|;.*)/";
-    $num_re = "/^-?[0-9]+(\.[0-9]*)?([eE][-+]?[0-9]+)?/";
+    $ws_re = <<<REG
+/^(\s+|;.*)/
+REG;
+    $num_re = <<<REG
+/^-?[0-9]+(\.[0-9]*)?([eE][-+]?[0-9]+)?/
+REG;
     $str_re = <<<REG
 /^"([^\\"]|\\"|\\\\)*"/
 REG;
-    $kw_re = /**/ "/^#[-!@$%^&*_=+:<>/?a-zA-Z][-!@$%^&*_=+:<>/?a-zA-Z0-9]*/";
-    $sym_re = /**/ "/^[-!@$%^&*_=+:<>/?a-zA-Z][-!@$%^&*_=+:<>/?a-zA-Z0-9]*/";
+    $kw_re = /**/ <<<REG
+/^#[-!@$%^&*_=+:<>?a-zA-Z][-!@$%^&*_=+:<>?a-zA-Z0-9]*/
+REG;
+    $sym_re = /**/ <<<REG
+/^[-!@$%^&*_=+:<>?a-zA-Z][-!@$%^&*_=+:<>?a-zA-Z0-9]*/
+REG;
     // Those /**/ comments are to unconfuse emacs' lexer.
 
-    $probe = function($re) use ($str) {
+    $probe = function($re) use (&$str, &$match) {
         $match = null;
         preg_match($re, $str, $match);
         if ($match) {
@@ -75,27 +85,27 @@ REG;
         } else {
             return false;
         }
-    }
+    };
 
-    $emit = function($v) {
+    $emit = function($v) use (&$stack, &$result) {
         if ($stack !== null) {
             $stack->car = new Pair($v, $stack->car);
         } else {
             $result = $v;
         }
-    }
+    };
 
-    $stackPush = function($closer) use (&$str, $stack, $closers) {
+    $stackPush = function($closer) use (&$str, &$stack, &$closers) {
         $str = substr($str, 1);
         $stack = new Pair(null, $stack);
         $closers = new Pair($closer, $closers);
-    }
+    };
 
-    $badInput = function() {
-        throw new Exception("Illegal input: " . $str};
-    }
+    $badInput = function() use (&$str) {
+        throw new Exception("Illegal input: " . $str);
+    };
 
-    while ($str && ($result === null)) {
+    while ($str && ($result === UNDEFINED)) {
         if ($probe($ws_re)) {
         } else if ($probe($num_re)) {
             $emit(+$match); // converts to a number (!!!)
@@ -106,37 +116,39 @@ REG;
                 default: $emit(new Keyword($match)); break;
             }
         } else if ($probe($str_re)) {
-            $raw = $match.substring(1, match.length - 1);
-            $emit($raw.replace(/\\("|\\)/g, function (wholematch, escaped) { return escaped; }));
-        } else if (probe(sym_re)) {
-            emit(new Vau.Symbol(match));
-        } else if (str.charAt(0) === '(') {
-            stackPush(')');
-            // } else if (str.charAt(0) === '[') {
-            //     stackPush(']');
-        } else if (closers === null) {
-            badInput();
-        } else if (str.charAt(0) === '.') {
-            if (closers.car !== ')') badInput();
-            str = str.substring(1);
-            closers = new Vau.Pair('.', closers);
-        } else if (str.charAt(0) === ')' && closers.car === '.') {
-            str = str.substring(1);
-            closers = closers.cdr.cdr; // both the '.' and the ')'
-            var tail = stack.car.car;
-            var val = stack.car.cdr;
-            stack = stack.cdr;
-            emit(Vau.reverse(val, tail));
-        } else if (str.charAt(0) === closers.car) {
-            str = str.substring(1);
-            closers = closers.cdr;
-            var val = stack.car;
-            stack = stack.cdr;
-            emit(Vau.reverse(val));
+            die('todo');
+            //$raw = $match.substring(1, match.length - 1);
+            //$emit(raw.replace("/\\(\"|\\)/g", function ($wholematch, $escaped) { return $escaped; }));
+        } else if ($probe($sym_re)) {
+            $emit(new Symbol($match));
+        } else if ($str[0] === '(') {
+            $stackPush(')');
+        } else if ($closers === null) {
+            $badInput();
+        } else if ($str[0] === '.') {
+            if ($closers->car !== ')') $badInput();
+            $str = substr($str, 1);
+            $closers = new Pair('.', $closers);
+        } else if ($str[0] === ')' && $closers->car === '.') {
+            $str = substr($str, 1);
+            $closers = $closers->cdr->cdr; // both the '.' and the ')'
+            $tail = $stack->car->car;
+            $val = $stack->car->cdr;
+            $stack = $stack->cdr;
+            $emit(reverse($val, $tail));
+        } else if ($str[0] === $closers->car) {
+            $str = substr($str, 1);
+            $closers = $closers->cdr;
+            $val = $stack->car;
+            $stack = $stack->cdr;
+            $emit(reverse($val, null));
         } else {
-            badInput();
+            $badInput();
         }
     }
 
-    return [result, str];
+    return [$result, $str];
 }
+
+$res = read("(+ 1 1)");
+var_dump($res);
