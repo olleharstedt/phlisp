@@ -75,7 +75,7 @@ REG;
 /^-?[0-9]+(\.[0-9]*)?([eE][-+]?[0-9]+)?/
 REG;
     $str_re = <<<REG
-/^"([^\"]|\"|\\\\)*"/
+/^"[^\"]*"/
 REG;
     $kw_re = /**/ <<<REG
 /^#[-!@$%^&*_=+:<>?a-zA-Z][-!@$%^&*_=+:<>?a-zA-Z0-9]*/
@@ -490,7 +490,7 @@ class KBegin
     }
 }
 
-$coreenv['$vau'] = new Primitive(function ($vm, $dynenv, $argtree) {
+$coreenv['$vau'] = new Primitive(function ($vm, $dynenv, $argtree) use (&$coreenv) {
     $body = $argtree->cdr->cdr;
     if ($body->cdr === null) {
         $body = $body->car;
