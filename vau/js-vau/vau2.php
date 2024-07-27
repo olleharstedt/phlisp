@@ -189,7 +189,7 @@ class VM
         while ($this->k) {
             $frame = $this->k;
             $this->k = "deliberately undefined continuation frame";
-            //print_r(get_class($frame). ' ');
+            print_r(get_class($frame). ' ');
             $frame->invoke($this);
         }
         return $this->a;
@@ -561,7 +561,7 @@ $baseenv['cdr'] = function ($x) { return $x->cdr; };
 $baseenv["list*"] = function () {
     $arguments = func_get_args();
     $arguments = $arguments[0];
-    print_r($arguments);
+    //print_r($arguments);
     $result = arrayToList(
         array_slice($arguments->getArrayCopy(), 0, count($arguments) - 1),
         $arguments[count($arguments) - 1]
@@ -632,16 +632,12 @@ $baseenv["display"] = function ($x) {
 
 $input = '
 ($begin
-  (display "Vau 0")
-
-  ($define! *base-env*
-    (($vau #ignore env env)))
-
   ($define! $lambda
     ($vau (formals . body) dynenv
       (wrap (eval (list* $vau formals #ignore body) dynenv))))
 
   ($define! list ($lambda x x))
+  (list 1 2 3)
 )
 ';
 $readOutput = read($input);
