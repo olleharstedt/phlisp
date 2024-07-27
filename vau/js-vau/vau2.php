@@ -263,7 +263,10 @@ class KPrimitiveApplier
     {
         $vm->k = $this->k;
         //$vm->a = $this->rator->apply(null, listToArray($vm->a));
-        $vm->a  =call_user_func($this->rator, listToArray($vm->a));
+        $vm->a = call_user_func(
+            $this->rator,
+            ...listToArray($vm->a)
+        );
     }
 }
 
@@ -558,6 +561,7 @@ $baseenv['cdr'] = function ($x) { return $x->cdr; };
 $baseenv["list*"] = function () {
     $arguments = func_get_args();
     $arguments = $arguments[0];
+    print_r($arguments);
     $result = arrayToList(
         array_slice($arguments->getArrayCopy(), 0, count($arguments) - 1),
         $arguments[count($arguments) - 1]
@@ -629,6 +633,15 @@ $baseenv["display"] = function ($x) {
 $input = '
 ($begin
   (display "Vau 0")
+
+  ($define! *base-env*
+    (($vau #ignore env env)))
+
+  ($define! $lambda
+    ($vau (formals . body) dynenv
+      (wrap (eval (list* $vau formals #ignore body) dynenv))))
+
+  ($define! list ($lambda x x))
 )
 ';
 $readOutput = read($input);
