@@ -128,7 +128,8 @@ REG;
         } else if ($probe($str_re)) {
             $raw = substr($match, 1, strlen($match) - 2);
             //$emit(str_replace($raw, "/\\(\"|\\)/g", function ($wholematch, $escaped) { return $escaped; }));
-            $emit(str_replace('"', '', $raw));
+            //$emit(str_replace('"', '', $raw));
+            $emit($raw);
         } else if ($probe($sym_re)) {
             $emit(new Symbol($match));
         } else if ($str[0] === '(') {
@@ -209,7 +210,7 @@ class KEval
     }
 
     function invoke ($vm) {
-        echo (json_encode($vm)) . "\n";
+        //echo (json_encode($vm)) . "\n";
         if ($vm->a instanceof Symbol) {
             $val = $this->env[$vm->a->name] ?? UNDEFINED;
             if ($val === UNDEFINED) {
@@ -565,7 +566,7 @@ $baseenv["list*"] = function () {
         array_slice($arguments, 0, count($arguments) - 1),
         $arguments[count($arguments) - 1]
     );
-    echo json_encode($result) . "\n";
+    //echo json_encode($result) . "\n";
     return $result;
 };
 
@@ -627,162 +628,14 @@ $baseenv["raw@="] = new Primitive(function ($vm, $dynenv, $argtree) {
 });
 
 $baseenv["display"] = function ($x) {
-    print_r($x);
+    if (is_string($x)) {
+        echo $x;
+    } else {
+        print_r($x);
+    }
 };
 
-$input = '
-($begin
-  (display "Vau 0")
-
-  ($define! *base-env*
-    (($vau #ignore env env)))
-
-  ($define! $lambda
-    ($vau (formals . body) dynenv
-      (wrap (eval (list* $vau formals #ignore body) dynenv))))
-
-  ($define! list ($lambda x x))
-
-  ($define! cadr ($lambda (v) (car (cdr v))))
-
-  ($define! map
-    ($lambda (f xs)
-      ($if (null? xs)
-	   xs
-	   (cons (f (car xs)) (map f (cdr xs))))))
-
-  ($define! $let
-    ($vau (bindings . body) env
-      (eval (list* (list* $lambda (map car bindings) body)
-		   (map cadr bindings)) env)))
-
-  ($define! $cond
-    ($vau forms env
-      ($if (null? forms)
-	   #ignore
-	   ($let ((val (eval (car (car forms)) env)))
-	     ($if val
-		  (eval (list* $begin (cdr (car forms))) env)
-		  (eval (list* $cond (cdr forms)) env))))))
-
-  ($define! for-each
-    ($lambda (proc xs)
-      ($if (null? xs)
-	   #ignore
-	   ($begin (proc (car xs))
-		   (for-each proc (cdr xs))))))
-
-  ($define! @
-    ($vau (objexp name) env
-      (eval (list raw@ (eval objexp env) name) env)))
-
-  ($define! @=
-    ($vau (objexp name valexp) env
-      (eval (list raw@= (eval objexp env) name (eval valexp env)) env)))
-
-  ($define! apply
-    ($lambda (appv arg . opt)
-      (eval (cons (unwrap appv) arg)
-	    ($if (null? opt)
-		 (extend-env *base-env*)
-		 (car opt)))))
-
-  ($define! reverse
-    ($lambda (xs)
-      (reverse-onto xs ())))
-
-  ($define! reverse-onto
-    ($lambda (xs acc)
-      ($if (null? xs)
-	   acc
-	   (reverse-onto (cdr xs) (cons (car xs) acc)))))
-
-  ($define! not
-    ($lambda (x)
-      ($if x #f #t)))
-
-  ($define! mc-eval
-    ($lambda (exp env k)
-      ($cond
-       ((symbol? exp) (k (env-lookup env exp)))
-       ((not (pair? exp)) (k exp))
-       (#t (mc-eval (car exp) env (make-combiner (cdr exp) env k))))))
-
-  ($define! make-combiner
-    ($lambda (argtree env k)
-      ($lambda (rator)
-	($cond
-	 ((primitive-applicative? rator)
-	  (mc-eval-args argtree () env (make-primitive-applier rator k)))
-	 ((operative? rator)
-	  ($let ((newenv (extend-env (@ rator staticenv))))
-	    (mc-match! newenv (@ rator formals) argtree)
-	    (mc-match! newenv (@ rator envformal) env)
-	    (mc-eval (@ rator body) newenv k)))
-	 ((applicative? rator)
-	  (mc-eval-args argtree () env (make-applicative-combiner (@ rator underlying) env k)))
-	 ((primitive-operative? rator)
-	  (eval (list* rator argtree) env))
-	 (#t ($error mc-eval "Not a callable: ~v with argtree: ~v" rator argtree))))))
-
-  ($define! make-primitive-applier
-    ($lambda (rator k)
-      ($lambda (args)
-	(k (apply rator args)))))
-
-  ($define! make-applicative-combiner
-    ($lambda (op env k)
-      ($lambda (args)
-	(mc-eval (cons op args) env k))))
-
-  ($define! mc-eval-args
-    ($lambda (args revacc env k)
-      ($if (null? args)
-	   (k (reverse revacc))
-	   (mc-eval (car args) env
-		    ($lambda (v) (mc-eval-args (cdr args) (cons v revacc) env k))))))
-
-  ($define! $and
-    ($vau exps env
-      ($cond
-       ((null? exps) #t)
-       ((eval (car exps) env) (eval (cons $and (cdr exps)) env))
-       (#t #f))))
-
-  ($define! mc-match!
-    ($lambda (env pattern value)
-      ($cond
-       ((pair? pattern) ($if (pair? value)
-			     ($begin (mc-match! env (car pattern) (car value))
-				     (mc-match! env (cdr pattern) (cdr value)))
-			     (mismatch pattern value)))
-       ((symbol? pattern) (env-set! env pattern value))
-       (($and (keyword? pattern) (=== (@ pattern name) "#ignore")) #t)
-       ((=== pattern value) #t)
-       (#t (mismatch pattern value)))))
-
-  ($define! mismatch
-    ($lambda (pattern value)
-      ($error mc-match! "Mismatch: ~v != ~v" pattern value)))
-
-  ($define! foldr
-    ($lambda (c n xs)
-      ($if (null? xs)
-	   n
-	   (c (car xs) (foldr c n (cdr xs))))))
-
-  (display (foldr ($lambda (a d)
-		    (display a)
-		    (cons a d))
-		  ()
-		  (list 1 2 3)))
-  (display (foldr ($vau args env
-		    (display args)
-		    #shorted)
-		  ()
-		  (list 1 2 3)))
-  )
-';
+$input = file_get_contents($argv[1]);
 $readOutput = read($input);
 $form = $readOutput[0];
 $input = $readOutput[1];
