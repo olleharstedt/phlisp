@@ -14,7 +14,14 @@ class Symbol
     }
 }
 
-class Keyword extends Symbol {}
+class Keyword
+{
+    public $name;
+    function __construct($name)
+    {
+        $this->name = $name;
+    }
+}
 
 class Pair {
     public $car;
@@ -48,7 +55,7 @@ function listToArray($xs)
 
 function arrayToList($a, $rightmost) {
     $result = $rightmost ?? null;
-    for ($i = $a->length - 1; $i >= 0; $i--) {
+    for ($i = count($a) - 1; $i >= 0; $i--) {
         $result = new Pair($a[$i], $result);
     }
     return $result;
@@ -237,6 +244,7 @@ class KCombination
             $vm->k = $this->k;
             $vm->a->invokeOp($vm, $this->env, $this->argtree);
         } else {
+            print_r($vm);
             throw new Exception("Attempt to invoke non-callable");
         }
     }
@@ -619,10 +627,11 @@ $baseenv["display"] = function ($x) {
 
 $input = '
 ($begin
+  ($define! *base-env*
+    (($vau #ignore env env)))
   ($define! $lambda
     ($vau (formals . body) dynenv
       (wrap (eval (list* $vau formals #ignore body) dynenv))))
-
   ($define! list ($lambda x x))
   (list 1 2 3)
 )
