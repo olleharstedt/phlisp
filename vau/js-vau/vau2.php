@@ -126,7 +126,7 @@ REG;
                 default: $emit(new Keyword($match)); break;
             }
         } else if ($probe($str_re)) {
-            $raw = substr($match, strlen($match) - 1);
+            $raw = substr($match, 1, strlen($match) - 2);
             //$emit(str_replace($raw, "/\\(\"|\\)/g", function ($wholematch, $escaped) { return $escaped; }));
             $emit(str_replace('"', '', $raw));
         } else if ($probe($sym_re)) {
@@ -189,6 +189,7 @@ class VM
         while ($this->k) {
             $frame = $this->k;
             $this->k = "deliberately undefined continuation frame";
+            //print_r(get_class($frame). ' ');
             $frame->invoke($this);
         }
         return $this->a;
@@ -211,8 +212,7 @@ class KEval
         if ($vm->a instanceof Symbol) {
             $val = $this->env[$vm->a->name] ?? UNDEFINED;
             if ($val === UNDEFINED) {
-                var_dump($vm->a->name);
-                throw new Exception("Undefined variable ");
+                throw new Exception("Undefined variable " . $vm->a->name);
             }
             $vm->a = $val;
             $vm->k = $this->k;
@@ -244,7 +244,6 @@ class KCombination
             $vm->k = $this->k;
             $vm->a->invokeOp($vm, $this->env, $this->argtree);
         } else {
-            print_r($vm);
             throw new Exception("Attempt to invoke non-callable");
         }
     }
@@ -558,10 +557,12 @@ $baseenv['cdr'] = function ($x) { return $x->cdr; };
 
 $baseenv["list*"] = function () {
     $arguments = func_get_args();
-    return arrayToList(
-        array_slice($arguments, 0, count($arguments) - 1),
+    $arguments = $arguments[0];
+    $result = arrayToList(
+        array_slice($arguments->getArrayCopy(), 0, count($arguments) - 1),
         $arguments[count($arguments) - 1]
     );
+    return $result;
 };
 
 $baseenv["env-set!"] = function ($env, $sym, $val) {
@@ -627,13 +628,7 @@ $baseenv["display"] = function ($x) {
 
 $input = '
 ($begin
-  ($define! *base-env*
-    (($vau #ignore env env)))
-  ($define! $lambda
-    ($vau (formals . body) dynenv
-      (wrap (eval (list* $vau formals #ignore body) dynenv))))
-  ($define! list ($lambda x x))
-  (list 1 2 3)
+  (display "Vau 0")
 )
 ';
 $readOutput = read($input);
@@ -641,4 +636,3 @@ $form = $readOutput[0];
 $input = $readOutput[1];
 if ($form === UNDEFINED) die('No form');
 $result = eval_($form, $baseenv);
-var_dump($result);
