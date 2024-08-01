@@ -413,9 +413,9 @@ class __PushPrompt
         if ($k instanceof Continuation) { $res = continueFrame($k, $f); }
         else { $res = combine($e, null, null, $th, $NIL); }
         if ($res instanceof Capture) {
-            if ($res.prompt == $prompt) {
-                $continuation = $res.k;
-                $handler = $res.handler;
+            if ($res->prompt == $prompt) {
+                $continuation = $res->k;
+                $handler = $res->handler;
                 return combine($e, null, null, $handler, cons($continuation, $NIL));
             }
             else {
@@ -488,8 +488,8 @@ class __DLet
     function wat_combine($e, $k, $f, $o)
     {
         $dv, $val, $th = elt($o, 0), elt($o, 1), elt($o, 2)
-        $oldVal = $dv.val
-        $dv.val = $val
+        $oldVal = $dv->val
+        $dv->val = $val
         try:
             if ($k instanceof Continuation): $res = continueFrame($k, $f)
             else: $res = combine($e, null, null, $th, $NIL)
@@ -497,7 +497,7 @@ class __DLet
                 captureFrame(res, lambda k, f: $this->wat_combine(e, k, f, o))
             return res
         finally:
-            dv.val = oldVal
+            dv->val = oldVal
     }
 }
  */
@@ -528,7 +528,7 @@ class Env
 {
     function __construct($parent)
     {
-        if ($parent !== null) { $this->bindings = dict($parent.bindings); }
+        if ($parent !== null) { $this->bindings = dict($parent->bindings); }
         else { $this->bindings = []; }
     }
     function __toString() { return str($this->bindings); }
@@ -701,8 +701,9 @@ function run($x, $environment)
 $primitives = ["BEGIN",
     # CORE
     # FEXPRS
-    ["DEF", "--VAU", new __VAU()],
-    ["DEF", "EVAL", WRAP(new _EVAL())],
+    //["DEF", "--VAU", new __VAU()],
+    //["DEF", "EVAL", WRAP(new _EVAL())],
+]; /*
     ["DEF", "MAKE-ENVIRONMENT", PYWRAP('make_env')],
     ["DEF", "WRAP", PYWRAP('WRAP')],
     ["DEF", "UNWRAP", PYWRAP('UNWRAP')],
@@ -825,6 +826,7 @@ $primitives = ["BEGIN",
     ["macro", ["method", "obj", "#rest", "args"],
     ["list*", "py-invoke", "obj", ["list", "string", "method"], "args"]]],
 ];
+*/
 # Init 
 $environment = make_env();
 bind($environment, new Sym("def"), new Def());
