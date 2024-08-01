@@ -1,6 +1,34 @@
 <?php
 // Framework: PHP
 
+# Objects
+class Nil
+{
+    function wat_match($e, $rhs)
+    {
+        if ($rhs !== $NIL) { fail("NIL expected, but got: " . json_encode($rhs)); }
+    }
+    function __toString()
+    {
+        return 'null';
+    }
+}
+
+$NIL = new Nil();
+
+class Ign
+{
+    function wat_match($e, $rhs)
+    {
+    }
+    function __toString()
+    {
+        return '#ignore';
+    }
+}
+$IGN = new Ign();
+
+
 function fail($m)
 {
     throw new Exception($m);
@@ -76,7 +104,7 @@ class Sym {
         return quote($this->name);
     }
 
-    public function __debugInfo() {
+    public function debugInfo() {
         return $this->__toString();
     }
 }
@@ -116,6 +144,7 @@ class Cons {
     }
 
     private function _lst() {
+        global $NIL;
         $car = (string)$this->car;
         if ($this->cdr === $NIL) {
             return $car;
@@ -127,14 +156,14 @@ class Cons {
         }
     }
 
-    public function __debugInfo() {
+    public function debugInfo() {
         return $this->__toString();
     }
 }
 
 // Operative & Applicative Combiners
 function combine($environment, $continuation, $function, $combiner, $object) {
-    if (property_exists($combiner, 'wat_combine')) {
+    if (is_object($combiner) && property_exists($combiner, 'wat_combine')) {
         return $combiner->wat_combine($environment, $continuation, $function, $object);
     } else {
         fail("not a combiner: " . strval($combiner));
@@ -178,6 +207,7 @@ class Apv {
     }
 
     public function wat_combine($environment, $continuation, $function, $object) {
+        global $NIL;
         if ($continuation instanceof Continuation) {
             $args = continueFrame($continuation, $function);
         } else {
@@ -201,6 +231,7 @@ class Apv {
 }
 
 function evalArgs($environment, $continuation, $function, $todo, $done) {
+    global $NIL;
     if ($todo === $NIL) {
         return reverse_list($done);
     }
@@ -266,6 +297,7 @@ class _Eval
 class Begin
 {
     function wat_combine($e, $k, $f, $o) {
+        global $NIL;
         if ($o === $NIL) { return null; }
         else { return begin($e, $k, $f, $o); }
     }
@@ -273,6 +305,7 @@ class Begin
 }
 
 function begin($e, $k, $f, $xs) {
+    global $NIL;
     if ($k instanceof Continuation) {
         $res = continueFrame($k, $f);
     }
@@ -374,6 +407,7 @@ class __PushPrompt
 {
     function wat_combine($e, $k, $f, $o)
     {
+        global $NIL;
         $prompt = elt($o, 0);
         $th = elt($o, 1);
         if ($k instanceof Continuation) { $res = continueFrame($k, $f); }
@@ -399,6 +433,7 @@ class __TakeSubcont
 {
     function wat_combine($e, $k, $f, $o)
     {
+        global $NIL;
         $prompt = elt($o, 0);
         $handler = elt($o, 1);
         $cap = Capture($prompt, $handler);
@@ -467,33 +502,6 @@ class __DLet
 }
  */
 
-# Objects
-class Nil
-{
-    function wat_match($e, $rhs)
-    {
-        if ($rhs !== $NIL) { fail("NIL expected, but got: " . json_encode($rhs)); }
-    }
-    function __toString()
-    {
-        return 'null';
-    }
-}
-
-$NIL = new Nil();
-
-class Ign
-{
-    function wat_match($e, $rhs)
-    {
-    }
-    function __toString()
-    {
-        return '#ignore';
-    }
-}
-$IGN = new Ign();
-
 function cons($car, $cdr)
 {
     return new Cons($car, $cdr);
@@ -528,7 +536,7 @@ class Env
     
 function make_env($parent = null)
 {
-    return Env($parent);
+    return new Env($parent);
 }
 function lookup($e, $name)
 {
@@ -538,7 +546,7 @@ function lookup($e, $name)
 
 function bind($e, $lhs, $rhs)
 {
-    lhs.wat_match($e, $rhs);
+    $lhs->wat_match($e, $rhs);
     return $rhs;
 }
             
@@ -548,24 +556,26 @@ function _list()
 }
 function list_star()
 {
+    global $NIL;
     $args = func_get_args();
     $length = len(args);
     if ($length >= 1) { $c = $args[-1]; }
     else { $c = $NIL; }
     $i = $length - 1;
     while ($i > 0) {
-        $c = cons($args[$i - 1], $c)
-        $i -= 1
+        $c = cons($args[$i - 1], $c);
+        $i -= 1;
     }
     return $c;
 }
 
-function array_to_list(array, end = null)
+function array_to_list($array, $end = null)
 {
-    $c = end and end or $NIL;
-    $i = len(array);
-    while $i > 0 {
-        $c = cons(array[$i - 1], $c);
+    global $NIL;
+    $c = $end ?? $NIL;
+    $i = count($array);
+    while ($i > 0) {
+        $c = cons($array[$i - 1], $c);
         $i -= 1;
     }
     return $c;
@@ -573,29 +583,33 @@ function array_to_list(array, end = null)
 
 function list_to_array($c)
 {
+    global $NIL;
     $res = [];
-    while $c is not $NIL {
+    while ($c != $NIL) {
         $res->append(car($c));
         $c = cdr($c);
     }
     return $res;
 }
 
-function reverse_list(l)
+function reverse_list($l)
 {
-    res = $NIL
-    while l is not $NIL:
-        res = cons(car(l), res)
-        l = cdr(l)
-    return res
+    global $NIL;
+    $res = $NIL;
+    while ($l != $NIL) {
+        $res = cons(car($l), $res);
+        $l = cdr($l);
+    }
+    return $res;
 }
 
 # Parser 
 function parse_json_value($obj)
 {
+    global $IGN;
     if (is_string($obj)) {
         if ($obj == "#ignore") { return $IGN; }
-        else { return Sym($obj); }
+        else { return new Sym($obj); }
     }
     if (is_array($obj)) {
         return parse_json_array($obj);
@@ -605,197 +619,220 @@ function parse_json_value($obj)
 
 function parse_json_array($arr)
 {
-    try:
-        $i = $arr.index("#rest")
-        $front = $arr[:i]
-        return array_to_list(map(parse_json_value, $front), parse_json_value($arr[$i + 1]))
-    except ValueError:
-        return array_to_list(map(parse_json_value, $arr))
+    try {
+        throw new Exception('here');
+        $i = $arr["#rest"];
+        //$front = $arr[:i]
+        $front = array_slice($arr, $i);
+        return array_to_list(array_map('parse_json_value', $front), parse_json_value($arr[$i + 1]));
+    } catch (Throwable $ex) {
+        return array_to_list(array_map('parse_json_value', $arr));
+    }
 }
 
 # PyNI
-class PyFun()
+class PyFun
 {
-    function __construct(pyfun):
-        if not hasattr(pyfun, '__call__'): fail('no fun')
-        $this->pyfun = pyfun
-    function wat_combine(e, k, f, o):
-        return $this->pyfun(*list_to_array(o))
+    function __construct($pyfun) {
+        if (!is_callable($pyfun)) { 
+            fail('no fun');
+        }
+        $this->pyfun = $pyfun;
+    }
+    function wat_combine($e, $k, $f, $o) {
+        return $this->pyfun(list_to_array($o));
+    }
 }
 
-function pywrap(pyfun) 
+function pywrap($pyfun) 
 {
-    return wrap(PyFun(pyfun))
+    return wrap(new PyFun($pyfun));
 }
-function py_unop(op)
+function py_unop($op)
 {
-    function f(a): return eval(str(op) + str(a))
-    return pywrap(f)
+    $f = function ($a) {
+        return _eval(str($op) + str($a));
+    };
+    return pywrap($f);
 }
-function py_binop(op)
+function py_binop($op)
 {
-    function f(a,b): return eval(str(a) + str(op) + str(b))
-    return pywrap(f)
+    $f = function ($a,$b) {
+        return eval(str($a) + str($op) + str($b));
+    };
+    return pywrap($f);
 }
-function py_invoke(obj, method_name, *args)
+function py_invoke($obj, $method_name, &$args)
 {
-    return getattr(obj, method_name)(*args)
+    $args = func_get_args();
+    return getattr($obj, $method_name)($args);
 }
-function py_callback(cmb)
+
+function py_callback($cmb)
 {
-    return lambda *args: combine(make_env(), null, null, cmb, array_to_list(args))
+    $f = function($args) { 
+        return combine(make_env(), null, null, cmb, array_to_list($args));
+    };
+    return $f;
 }
 
 #TODO: we need to distinguish between setting an item and an attribute - this is not JavaScript
-function setElement(obj, i, v)
+function setElement(&$obj, $i, $v)
 {
-    obj[i] = v
+    $obj[$i] = $v;
 }
-function getElement(obj, i)
+function getElement($obj, $i)
 {
-    try: return obj[i]
-    except AttributeError: 
-        try: return getattr(obj, str(i))
-        except AttributeError:
-            fail('Python object does not have attribute "' + str(i) + '"')
+    try {
+        return $obj[$i];
+    } catch (Throwable $ex) {
+        try {
+            return getattr($obj, str($i));
+        } catch (Throwable $ex) {
+            fail('Python object does not have attribute "' + str($i) + '"');
+        }
+    }
 }
-/*
+function run($x, $environment)
+{
+    return evaluate($environment, null, null, parse_json_value($x));
+}
 # Primitives
-primitives = ["begin",
-# Core
-# Fexprs
-         ["def", "--vau", __Vau()],
-         ["def", "eval", wrap(_Eval())],
-         ["def", "make-environment", pywrap(make_env)],
-         ["def", "wrap", pywrap(wrap)],
-         ["def", "unwrap", pywrap(unwrap)],
-# Values
-         ["def", "cons", pywrap(cons)],
-         ["def", "cons?", pywrap(lambda obj: type(obj) == type(Cons(null,null)))],
-         ["def", "nil?", pywrap(lambda obj: obj is $NIL)],
-         ["def", "symbol?", pywrap(lambda obj: type(obj) == type(Sym('symbol')))],
-         ["def", "symbol-name", pywrap(sym_name)],
-# First-order Control
-         ["def", "if", _If()],
-         ["def", "--loop", __Loop()],
-         ["def", "throw", pywrap(fail)],
-         ["def", "--catch", wrap(__Catch())],
-         ["def", "finally", Finally()],
-# Delimited Control
-         ["def", "--push-prompt", wrap(__PushPrompt())],
-         ["def", "--take-subcont", wrap(__TakeSubcont())],
-         ["def", "--push-subcont", wrap(__PushSubcont())],
-# Dynamically-scoped Variables
-         ["def", "dnew", wrap(DNew())],
-         ["def", "--dlet", wrap(__DLet())],
-         ["def", "dref", wrap(DRef())],
-# Python Interface
-         ["def", "py-wrap", pywrap(pywrap)],
-         ["def", "py-unop", pywrap(py_unop)],
-         ["def", "py-binop", pywrap(py_binop)],
-         ["def", "py-element", pywrap(getElement)],
-         ["def", "py-set-element", pywrap(setElement)],
-         ["def", "py-invoke", pywrap(py_invoke)],
-         ["def", "py-callback", pywrap(py_callback)],
-         ["def", "list-to-array", pywrap(list_to_array)],
-# Optimization
-         ["def", "list*", pywrap(list_star)],
+$primitives = ["BEGIN",
+    # CORE
+    # FEXPRS
+    ["DEF", "--VAU", new __VAU()],
+    ["DEF", "EVAL", WRAP(new _EVAL())],
+    ["DEF", "MAKE-ENVIRONMENT", PYWRAP('make_env')],
+    ["DEF", "WRAP", PYWRAP('WRAP')],
+    ["DEF", "UNWRAP", PYWRAP('UNWRAP')],
+    # VALUES
+    ["DEF", "CONS", PYWRAP('CONS')],
+    ["DEF", "CONS?", PYWRAP(fn($OBJ) => TYPE($OBJ) == TYPE(CONS(NULL,NULL)))],
+    ["DEF", "NIL?", PYWRAP(fn($OBJ) => $OBJ == $NIL)],
+    ["DEF", "SYMBOL?", PYWRAP(fn($OBJ) => TYPE($OBJ) == TYPE(SYM('SYMBOL')))],
+    ["DEF", "SYMBOL-NAME", PYWRAP('SYM_NAME')],
+    # FIRST-ORDER CONTROL
+    ["DEF", "IF", new _IF()],
+    ["DEF", "--LOOP", new __LOOP()],
+    //["DEF", "THROW", PYWRAP(FAIL)],
+    //["DEF", "--CATCH", WRAP(__CATCH())],
+    //["DEF", "FINALLY", FINALLY()],
+    # DELIMITED CONTROL
+    ["DEF", "--PUSH-PROMPT", WRAP(new __PUSHPROMPT())],
+    ["DEF", "--TAKE-SUBCONT", WRAP(new __TAKESUBCONT())],
+    ["DEF", "--PUSH-SUBCONT", WRAP(new __PUSHSUBCONT())],
+    # DYNAMICALLY-SCOPED VARIABLES
+    ["DEF", "DNEW", WRAP(new DNEW())],
+    //["DEF", "--DLET", WRAP(new __DLET())],
+    ["DEF", "DREF", WRAP(new DREF())],
+    # PYTHON INTERFACE
+    ["DEF", "PY-WRAP", PYWRAP('PYWRAP')],
+    ["DEF", "PY-UNOP", PYWRAP('PY_UNOP')],
+    ["DEF", "PY-BINOP", PYWRAP('PY_BINOP')],
+    ["DEF", "PY-ELEMENT", PYWRAP('GETELEMENT')],
+    ["DEF", "PY-SET-ELEMENT", PYWRAP('SETELEMENT')],
+    ["DEF", "PY-INVOKE", PYWRAP('PY_INVOKE')],
+    ["DEF", "PY-CALLBACK", PYWRAP('PY_CALLBACK')],
+    ["DEF", "LIST-TO-ARRAY", PYWRAP('LIST_TO_ARRAY')],
+    # OPTIMIZATION
+    ["DEF", "LIST*", PYWRAP('LIST_STAR')],
 
-# Primitives
-         ["def", "quote", ["--vau", ["x"], "#ignore", "x"]],
-         ["def", "list", ["wrap", ["--vau", "arglist", "#ignore", "arglist"]]],
-         ["def", "string", ["--vau", ["sym"], "#ignore", ["symbol-name", "sym"]]],
+    # Primitives
+    ["def", "quote", ["--vau", ["x"], "#ignore", "x"]],
+    ["def", "list", ["wrap", ["--vau", "arglist", "#ignore", "arglist"]]],
+    ["def", "string", ["--vau", ["sym"], "#ignore", ["symbol-name", "sym"]]],
 
-         ["def", "make-macro-expander",
-          ["wrap",
-           ["--vau", ["expander"], "#ignore",
-            ["--vau", "operands", "env",
-             ["eval", ["eval", ["cons", "expander", "operands"], ["make-environment"]], "env"]]]]],
+    ["def", "make-macro-expander",
+    ["wrap",
+    ["--vau", ["expander"], "#ignore",
+    ["--vau", "operands", "env",
+    ["eval", ["eval", ["cons", "expander", "operands"], ["make-environment"]], "env"]]]]],
 
-         ["def", "vau",
-          ["make-macro-expander",
-           ["--vau", ["params", "env-param", "#rest", "body"], "#ignore",
-            ["list", "--vau", "params", "env-param", ["cons", "begin", "body"]]]]],
+    ["def", "vau",
+    ["make-macro-expander",
+    ["--vau", ["params", "env-param", "#rest", "body"], "#ignore",
+    ["list", "--vau", "params", "env-param", ["cons", "begin", "body"]]]]],
 
-         ["def", "macro",
-          ["make-macro-expander",
-           ["vau", ["params", "#rest", "body"], "#ignore",
-            ["list", "make-macro-expander", ["list*", "vau", "params", "#ignore", "body"]]]]],
+    ["def", "macro",
+    ["make-macro-expander",
+    ["vau", ["params", "#rest", "body"], "#ignore",
+    ["list", "make-macro-expander", ["list*", "vau", "params", "#ignore", "body"]]]]],
 
-         ["def", "lambda",
-          ["macro", ["params", "#rest", "body"],
-           ["list", "wrap", ["list*", "vau", "params", "#ignore", "body"]]]],
-         ["def", "loop",
-          ["macro", "body",
-           ["list", "--loop", ["list*", "begin", "body"]]]],
-         ["def", "catch",
-          ["macro", ["protected", "handler"],
-           ["list", "--catch", ["list", "lambda", [], "protected"], "handler"]]],
+    ["def", "lambda",
+    ["macro", ["params", "#rest", "body"],
+    ["list", "wrap", ["list*", "vau", "params", "#ignore", "body"]]]],
+    ["def", "loop",
+    ["macro", "body",
+    ["list", "--loop", ["list*", "begin", "body"]]]],
+    ["def", "catch",
+    ["macro", ["protected", "handler"],
+    ["list", "--catch", ["list", "lambda", [], "protected"], "handler"]]],
 
-         ["def", "push-prompt",
-          ["macro", ["prompt", "#rest", "body"],
-           ["list", "--push-prompt", "prompt", ["list*", "lambda", [], "body"]]]],
-         ["def", "take-subcont",
-          ["macro", ["prompt", "k", "#rest", "body"],
-           ["list", "--take-subcont", "prompt", ["list*", "lambda", ["list", "k"], "body"]]]],
-         ["def", "push-subcont",
-          ["macro", ["k", "#rest", "body"],
-           ["list", "--push-subcont", "k", ["list*", "lambda", [], "body"]]]],
+    ["def", "push-prompt",
+    ["macro", ["prompt", "#rest", "body"],
+    ["list", "--push-prompt", "prompt", ["list*", "lambda", [], "body"]]]],
+    ["def", "take-subcont",
+    ["macro", ["prompt", "k", "#rest", "body"],
+    ["list", "--take-subcont", "prompt", ["list*", "lambda", ["list", "k"], "body"]]]],
+    ["def", "push-subcont",
+    ["macro", ["k", "#rest", "body"],
+    ["list", "--push-subcont", "k", ["list*", "lambda", [], "body"]]]],
 
-# Python
-         ["def", "array", ["lambda", "args", ["list-to-array", "args"]]],
+    # Python
+    ["def", "array", ["lambda", "args", ["list-to-array", "args"]]],
 
-         ["def", "define-py-unop",
-          ["macro", ["op"],
-           ["list", "def", "op", ["list", "py-unop", ["list", "string", "op"]]]]],
+    ["def", "define-py-unop",
+    ["macro", ["op"],
+    ["list", "def", "op", ["list", "py-unop", ["list", "string", "op"]]]]],
 
-         ["define-py-unop", "not"],
-         ["define-py-unop", "type"],
-         ["define-py-unop", "~"],
+    ["define-py-unop", "not"],
+    ["define-py-unop", "type"],
+    ["define-py-unop", "~"],
 
-         ["def", "define-py-binop",
-          ["macro", ["op"],
-           ["list", "def", "op", ["list", "py-binop", ["list", "string", "op"]]]]],
+    ["def", "define-py-binop",
+    ["macro", ["op"],
+    ["list", "def", "op", ["list", "py-binop", ["list", "string", "op"]]]]],
 
-         ["define-py-binop", "!="],
-         ["define-py-binop", "!=="],
-         ["define-py-binop", "%"],
-         ["define-py-binop", "&"],
-         ["define-py-binop", "&&"],
-         ["define-py-binop", "*"],
-         ["define-py-binop", "+"],
-         ["define-py-binop", "-"],
-         ["define-py-binop", "/"],
-         ["define-py-binop", "<"],
-         ["define-py-binop", "<<"],
-         ["define-py-binop", "<="],
-         ["define-py-binop", "=="],
-         ["define-py-binop", "==="],
-         ["define-py-binop", ">"],
-         ["define-py-binop", ">>"],
-         ["define-py-binop", ">>>"],
-         ["define-py-binop", "^"],
-         ["define-py-binop", "in"],
-         ["define-py-binop", "instanceof"],
-         ["define-py-binop", "|"],
-         ["define-py-binop", "or"],
+    ["define-py-binop", "!="],
+    ["define-py-binop", "!=="],
+    ["define-py-binop", "%"],
+    ["define-py-binop", "&"],
+    ["define-py-binop", "&&"],
+    ["define-py-binop", "*"],
+    ["define-py-binop", "+"],
+    ["define-py-binop", "-"],
+    ["define-py-binop", "/"],
+    ["define-py-binop", "<"],
+    ["define-py-binop", "<<"],
+    ["define-py-binop", "<="],
+    ["define-py-binop", "=="],
+    ["define-py-binop", "==="],
+    ["define-py-binop", ">"],
+    ["define-py-binop", ">>"],
+    ["define-py-binop", ">>>"],
+    ["define-py-binop", "^"],
+    ["define-py-binop", "in"],
+    ["define-py-binop", "instanceof"],
+    ["define-py-binop", "|"],
+    ["define-py-binop", "or"],
 
-         ["def", ".",
-          ["macro", ["field", "obj"],
-           ["list", "py-element", "obj", ["list", "string", "field"]]]],
+    ["def", ".",
+    ["macro", ["field", "obj"],
+    ["list", "py-element", "obj", ["list", "string", "field"]]]],
 
-         ["def", "#",
-          ["macro", ["method", "obj", "#rest", "args"],
-           ["list*", "py-invoke", "obj", ["list", "string", "method"], "args"]]],
-        ]
+    ["def", "#",
+    ["macro", ["method", "obj", "#rest", "args"],
+    ["list*", "py-invoke", "obj", ["list", "string", "method"], "args"]]],
+];
 # Init 
-environment = make_env()
-bind(environment, Sym("def"), Def())
-bind(environment, Sym("begin"), Begin())
+$environment = make_env();
+bind($environment, new Sym("def"), new Def());
+bind($environment, new Sym("begin"), new Begin());
 # API
-function run(x): return evaluate(environment, null, null, parse_json_value(x))
-run(primitives)
+run($primitives, $environment);
 
+/*
 if __name__ == '__main__':
     # Tests
     program = ['begin',
@@ -821,3 +858,5 @@ if __name__ == '__main__':
     # Produce some HTML with embedded Wat (JS) 
     # https://raw.github.com/manuel/wat-js/master/wat.js
 */
+//$program = ['begin', ['def','x',10], ['*', 'x', ['*','x','x']]];
+//run($program, $environment);
