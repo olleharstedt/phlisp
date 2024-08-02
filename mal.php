@@ -1,36 +1,6 @@
 <?php
 
-// General functions
-// TODO: Just use PHP = instead?
-function _equal_Q($a, $b) {
-    $ota = gettype($a) === "object" ? get_class($a) : gettype($a);
-    $otb = gettype($b) === "object" ? get_class($b) : gettype($b);
-    if (!($ota === $otb or (_sequential_Q($a) and _sequential_Q($b)))) {
-        return false;
-    } elseif (_symbol_Q($a)) {
-        #print "ota: $ota, otb: $otb\n";
-        return $a->value === $b->value;
-    } elseif (_list_Q($a) or _vector_Q($a)) {
-        if ($a->count() !== $b->count()) { return false; }
-        for ($i=0; $i<$a->count(); $i++) {
-            if (!_equal_Q($a[$i], $b[$i])) { return false; }
-        }
-        return true;
-    } elseif (_hash_map_Q($a)) {
-        if ($a->count() !== $b->count()) { return false; }
-        $hm1 = $a->getArrayCopy();
-        $hm2 = $b->getArrayCopy();
-        foreach (array_keys($hm1) as $k) {
-            if (!_equal_Q($hm1[$k], $hm2[$k])) { return false; }
-        }
-        return true;
-    } else {
-        return $a === $b;
-    }
-}
-
 function _sequential_Q($seq) { return _list_Q($seq) or _vector_Q($seq); }
-
 // Scalars
 function _nil_Q($obj) { return $obj === NULL; }
 function _true_Q($obj) { return $obj === true; }
@@ -77,7 +47,6 @@ class FunctionClass {
         $this->func = $func;
         $this->type = $type;
         $this->ast = $ast;
-        #print_r($ast);
         $this->env = $env;
         $this->params = $params;
         $this->ismacro = $ismacro;
@@ -85,8 +54,7 @@ class FunctionClass {
     public function __invoke() {
         $args = func_get_args();
         if ($this->type === 'native') {
-            $fn_env = new Env($this->env,
-                              $this->params, $args);
+            $fn_env = new Env($this->env, $this->params, $args);
             $evalf = $this->func;
             return $evalf($this->ast, $fn_env);
         } else {
@@ -272,11 +240,6 @@ function read_list($reader, $constr='_list', $start='(', $end=')') {
     return $ast;
 }
 
-function read_hash_map($reader) {
-    $lst = read_list($reader, '_list', '{', '}');
-    return call_user_func_array('_hash_map', $lst->getArrayCopy());
-}
-
 function read_form($reader) {
     $token = $reader->peek();
     switch ($token) {
@@ -302,15 +265,11 @@ function read_form($reader) {
                return _list(_symbol('deref'),
                                read_form($reader));
 
-    case 'php/': $reader->next();
-               return _list(_symbol('to-native'),
-                               read_form($reader));
-
+    case 'php/': throw new Exception("No");
     case ')': throw new Exception("unexpected ')'");
     case '(': return read_list($reader);
-    case '}': throw new Exception("unexpected '}'");
-    case '{': return read_hash_map($reader);
-
+    case ']': throw new Exception("unexpected ']'");
+    case '[': return read_list($reader, '_vector', '[', ']');
     default:  return read_atom($reader);
     }
 }
@@ -438,40 +397,11 @@ function str() {
     return implode("", $ps);
 }
 
-function prn() {
-    $ps = array_map(function ($obj) { return _pr_str($obj, True); },
-                    func_get_args());
-    print implode(" ", $ps) . "\n";
-    return null;
-}
-
 function println() {
     $ps = array_map(function ($obj) { return _pr_str($obj, False); },
                     func_get_args());
     print implode(" ", $ps) . "\n";
     return null;
-}
-
-
-// Number functions
-function time_ms() {
-    return intval(microtime(1) * 1000);
-}
-
-
-// Hash Map functions
-function assoc($src_hm) {
-    $args = func_get_args();
-    $hm = clone $src_hm;
-    $args[0] = $hm;
-    return call_user_func_array('_assoc_BANG', $args);
-}
-
-function dissoc($src_hm) {
-    $args = func_get_args();
-    $hm = clone $src_hm;
-    $args[0] = $hm;
-    return call_user_func_array('_dissoc_BANG', $args);
 }
 
 function get($hm, $k) {
@@ -482,16 +412,11 @@ function get($hm, $k) {
     }
 }
 
+function set($hm, $k, $v) {
+    return $hm[$k] = $v;
+}
+
 function contains_Q($hm, $k) { return array_key_exists($k, $hm); }
-
-function keys($hm) {
-    return call_user_func_array('_list',
-        array_map('strval', array_keys($hm->getArrayCopy())));
-}
-function vals($hm) {
-    return call_user_func_array('_list', array_values($hm->getArrayCopy()));
-}
-
 
 // Sequence functions
 function cons($a, $b) {
@@ -536,6 +461,22 @@ function first($seq) {
         return NULL;
     } else {
         return $seq[0];
+    }
+}
+
+function second($seq) {
+    if ($seq === NULL || count($seq) === 0) {
+        return NULL;
+    } else {
+        return $seq[1];
+    }
+}
+
+function last($seq) {
+    if ($seq === NULL || count($seq) === 0) {
+        return NULL;
+    } else {
+        return $seq[count($seq) - 1];
     }
 }
 
@@ -627,7 +568,7 @@ function swap_BANG($atm, $f) {
 
 // core_ns is namespace of type functions
 $core_ns = array(
-    '='=>      function ($a, $b) { return _equal_Q($a, $b); },
+    '='=>      function ($a, $b) { return $a == $b; },
     'throw'=>  function ($a) { return mal_throw($a); },
     'nil?'=>   function ($a) { return _nil_Q($a); },
     'true?'=>  function ($a) { return _true_Q($a); },
@@ -642,7 +583,6 @@ $core_ns = array(
     'fn?'=>    function($a) { return $a instanceof Closure || ($a instanceof FunctionClass && !$a->ismacro ); },
     'macro?'=> function($a) { return $a instanceof FunctionClass && $a->ismacro; },
     'str'=>    function () { return call_user_func_array('str', func_get_args()); },
-    'prn'=>    function () { return call_user_func_array('prn', func_get_args()); },
     'println'=>function () { return call_user_func_array('println', func_get_args()); },
     '<'=>      function ($a, $b) { return $a < $b; },
     '<='=>     function ($a, $b) { return $a <= $b; },
@@ -659,12 +599,9 @@ $core_ns = array(
     'vector?'=> function ($a) { return _vector_Q($a); },
     'hash-map' => function () { return call_user_func_array('_hash_map', func_get_args()); },
     'map?'=>   function ($a) { return _hash_map_Q($a); },
-    'assoc' => function () { return call_user_func_array('assoc', func_get_args()); },
-    'dissoc' => function () { return call_user_func_array('dissoc', func_get_args()); },
     'get' =>   function ($a, $b) { return get($a, $b); },
+    'set' =>   function ($a, $b, $c) { return set($a, $b, $c); },
     'contains?' => function ($a, $b) { return contains_Q($a, $b); },
-    'keys' =>  function ($a) { return keys($a); },
-    'vals' =>  function ($a) { return vals($a); },
 
     'sequential?'=> function ($a) { return _sequential_Q($a); },
     'cons'=>   function ($a, $b) { return cons($a, $b); },
@@ -672,6 +609,8 @@ $core_ns = array(
     'vec'=>    function ($a) { return vec($a, $b); },
     'nth'=>    function ($a, $b) { return nth($a, $b); },
     'first'=>  function ($a) { return first($a); },
+    'second'=>  function ($a) { return second($a); },
+    'last'=>  function ($a) { return last($a); },
     'rest'=>   function ($a) { return rest($a); },
     'empty?'=> function ($a) { return empty_Q($a); },
     'count'=>  function ($a) { return scount($a); },
@@ -828,8 +767,7 @@ function MAL_EVAL($ast, $env) {
         }
         break; // Continue loop (TCO)
     case "fn*":
-        return _function('MAL_EVAL', 'native',
-                         $ast[2], $env, $ast[1]);
+        return _function( 'MAL_EVAL', 'native', $ast[2], $env, $ast[1]);
     default:
         $el = eval_ast($ast, $env);
         $f = $el[0];
