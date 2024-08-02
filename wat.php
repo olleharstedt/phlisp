@@ -8,7 +8,7 @@ class Nil
 {
     function wat_match($e, $rhs)
     {
-        if ($rhs instanceof Nil) { fail("NIL expected, but got: " . json_encode($rhs)); }
+        if ((!$rhs instanceof Nil)) { fail("NIL expected, but got: " . json_encode($rhs)); }
     }
     function __toString()
     {
@@ -30,11 +30,11 @@ function fail($m)
     throw new Exception($m);
 }
 
-function quote($object) {
+function quote($obj) {
     try {
-        return '"' . $object . '"';
+        return '"' . $obj . '"';
     } catch (Throwable $e) {
-        return strval($object);
+        return strval($obj);
     }
 }
 
@@ -42,7 +42,7 @@ class Continuation {
     public $function;
     public $next;
 
-    public function __construct($function, $next) {
+    function __construct($function, $next) {
         $this->function = $function;
         $this->next = $next;
     }
@@ -53,7 +53,7 @@ class Capture {
     public $handler;
     public $k;
 
-    public function __construct($prompt, $handler) {
+    function __construct($prompt, $handler) {
         $this->prompt = $prompt;
         $this->handler = $handler;
         $this->k = NONE;
@@ -79,28 +79,24 @@ function evaluate($e, $k, $f, $x) {
 
 class Sym {
     public $name;
-
-    public function __construct($name) {
+    function __construct($name) {
         $this->name = $name;
     }
-
-    public function wat_eval($e, $k, $f) {
+    function wat_eval($e, $k, $f) {
         return lookup($e, $this->name);
     }
-
-    public function wat_match($e, $rhs) {
+    function wat_match($e, $rhs) {
         if ($e === NONE) {
             fail("undefined argument: " . $this->name);
         }
         $e->bindings[$this->name] = $rhs;
         return $e->bindings[$this->name];
     }
-
-    public function __toString() {
+    function __toString() {
         return quote($this->name);
     }
 
-    public function debugInfo() {
+    function debugInfo() {
         return $this->__toString();
     }
 }
@@ -108,17 +104,15 @@ class Sym {
 class Cons {
     public $car;
     public $cdr;
-
-    public function __construct($car, $cdr) {
+    function __construct($car, $cdr) {
         $this->car = $car;
         $this->cdr = $cdr;
     }
-
-    public function wat_eval($e, $k, $f) {
+    function wat_eval($e, $k, $f) {
         if (($k instanceof Continuation)) {
             $op = continueFrame($k, $f);
         } else {
-            $op = evaluate($e, NONE, NONE, $this->car);
+            $op = evaluate($e, NONE, NONE, car($this));
         }
         if ($op instanceof Capture) {
             $other = $this;
@@ -130,153 +124,139 @@ class Cons {
         return combine($e, NONE, NONE, $op, $this->cdr);
     }
 
-    public function wat_match($e, $rhs) {
-        $this->car->wat_match($e, $rhs->car);
-        $this->cdr->wat_match($e, $rhs->cdr);
+    function wat_match($e, $rhs) {
+        car($this)->wat_match($e, car($rhs));
+        cdr($this)->wat_match($e, cdr($rhs));
     }
 
-    public function __toString() {
+    function __toString() {
         return '[' . $this->_lst() . ']';
     }
 
-    private function _lst() {
-        $car = (string)$this->car;
+    function _lst() {
+        $car = (string) $this->car;
         if ($this->cdr instanceof Nil) {
             return $car;
         }
         try {
             return $car . ', ' . $this->cdr->_lst();
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             return $car . ', ' . (string)$this->cdr;
         }
     }
-
-    public function debugInfo() {
+    function debugInfo() {
         return $this->__toString();
     }
 }
 
 // Operative & Applicative Combiners
-function combine($environment, $continuation, $function, $combiner, $object) {
-    if (is_object($combiner) && property_exists($combiner, 'wat_combine')) {
-        return $combiner->wat_combine($environment, $continuation, $function, $object);
+function combine($e, $k, $f, $cmb, $o) {
+    if (is_object($cmb) && property_exists($cmb, 'wat_combine')) {
+        return $cmb->wat_combine($e, $k, $f, $o);
     } else {
-        fail("not a combiner: " . strval($combiner));
+        fail("not a combiner: " . strval($cmb));
     }
 }
 
 class Opv {
-    private $parameter;
-    private $ephemeralParameter;
-    private $xValue;
-    private $environment;
+    public $p;
+    public $ep;
+    public $x;
+    public $e;
 
-    public function __construct($parameter, $ephemeralParameter, $xValue, $environment) {
-        $this->parameter = $parameter;
-        $this->ephemeralParameter = $ephemeralParameter;
-        $this->xValue = $xValue;
-        $this->environment = $environment;
+    function __construct($p, $ep, $x, $e) {
+        $this->p = $p;
+        $this->ep = $ep;
+        $this->x = $x;
+        $this->e = $e;
     }
-
-    public function wat_combine($environment, $continuation, $function, $object) {
-        $xe = make_env($this->environment);
-        bind($xe, $this->parameter, $object);
-        bind($xe, $this->ephemeralParameter, $environment);
-        return evaluate($xe, $continuation, $function, $this->xValue);
+    function wat_combine($e, $k, $f, $o) {
+        $xe = make_env($this->e);
+        bind($xe, $this->p, $o);
+        bind($xe, $this->ep, $e);
+        return evaluate($xe, $k, $f, $this->x);
     }
 }
 
-function wrap($combiner) {
-    return new Apv($combiner);
-}
-
-function unwrap($apv) {
-    return $apv->cmb;
-}
+function wrap($combiner) { return new Apv($combiner); }
+function unwrap($apv) { return $apv->cmb; }
 
 class Apv {
-    private $combiner;
-
-    public function __construct($combiner) {
-        $this->combiner = $combiner;
+    public $cmb;
+    function __construct($cmb) {
+        $this->cmb = $cmb;
     }
-
-    public function wat_combine($environment, $continuation, $function, $object) {
+    function wat_combine($e, $k, $f, $obj) {
         global $NIL;
-        if ($continuation instanceof Continuation) {
-            $args = continueFrame($continuation, $function);
+        if ($k instanceof Continuation) {
+            $args = continueFrame($k, $f);
         } else {
-            $args = evalArgs($environment, null, null, $object, $NIL);
+            $args = evalArgs($e, null, null, $obj, $NIL);
         }
 
         if ($args instanceof Capture) {
             $other = $this;
-            captureFrame($args, function($continuation, $function) use ($other, $environment, $object) {
-                return $other->wat_combine($environment, $continuation, $function, $object);
+            captureFrame($args, function($k, $f) use ($other, $e, $obj) {
+                return $other->wat_combine($e, $k, $f, $obj);
             });
             return $args;
         }
 
-        return $this->combiner->wat_combine($environment, null, null, $args);
+        return $this->cmb->wat_combine($e, null, null, $args);
     }
 
-    public function __toString() {
-        return '(Apv ' . strval($this->combiner) . ')';
+    function __toString() {
+        return '(Apv ' . strval($this->cmb) . ')';
     }
 }
 
-function evalArgs($environment, $continuation, $function, $todo, $done) {
+function evalArgs($e, $k, $f, $todo, $done) {
     global $NIL;
     if ($todo instanceof Nil) {
         return reverse_list($done);
     }
-
-    if ($continuation instanceof Continuation) {
-        $arg = continueFrame($continuation, $function);
+    if ($k instanceof Continuation) {
+        $arg = continueFrame($k, $f);
     } else {
-        $arg = evaluate($environment, NONE, NONE, car($todo));
+        $arg = evaluate($e, NONE, NONE, car($todo));
     }
-
     if ($arg instanceof Capture) {
-        captureFrame($arg, function($continuation, $function) use ($environment, $todo, $done) {
-            return evalArgs($environment, $continuation, $function, $todo, $done);
+        captureFrame($arg, function($k, $f) use ($e, $todo, $done) {
+            return evalArgs($e, $k, $f, $todo, $done);
         });
         return $arg;
     }
-
-    return evalArgs($environment, null, null, cdr($todo), cons($arg, $done));
+    return evalArgs($e, null, null, cdr($todo), cons($arg, $done));
 }
 
 // Built-in Combiners 
 class __Vau {
-    public function wat_combine($environment, $continuation, $function, $object) {
-        return new Opv(elt($object, 0), elt($object, 1), elt($object, 2), $environment);
+    function wat_combine($e, $k, $f, $obj) {
+        return new Opv(elt($obj, 0), elt($obj, 1), elt($obj, 2), $e);
     }
-
-    public function __toString() {
+    function __toString() {
         return '__Vau';
     }
 }
 
 class Def {
-    public function wat_combine($environment, $continuation, $function, $object) {
-        if ($continuation instanceof Continuation) {
-            $value = continueFrame($continuation, $function);
+    function wat_combine($e, $k, $f, $o) {
+        if ($k instanceof Continuation) {
+            $value = continueFrame($k, $f);
         } else {
-            $value = evaluate($environment, NONE, NONE, elt($object, 1));
+            $value = evaluate($e, NONE, NONE, elt($o, 1));
         }
-
         if ($value instanceof Capture) {
-            captureFrame($value, function($continuation, $function) use ($environment, $object) {
-                return $this->wat_combine($environment, $continuation, $function, $object);
+            captureFrame($value, function($k, $f) use ($e, $o) {
+                return $this->wat_combine($e, $k, $f, $o);
             });
             return $value;
         }
 
-        return bind($environment, elt($object, 0), $value);
+        return bind($e, elt($o, 0), $value);
     }
 
-    public function __toString() {
+    function __toString() {
         return 'Def';
     }
 }
@@ -293,7 +273,7 @@ class Begin
 {
     function wat_combine($e, $k, $f, $o) {
         global $NIL;
-        if ($o instanceof Nil) { return null; }
+        if ($o instanceof Nil) { return NONE; }
         else { return begin($e, $k, $f, $o); }
     }
     function __toString() { return 'Begin'; }
@@ -303,8 +283,7 @@ function begin($e, $k, $f, $xs) {
     global $NIL;
     if ($k instanceof Continuation) {
         $res = continueFrame($k, $f);
-    }
-    else { 
+    } else { 
         $res = evaluate($e, NONE, NONE, car($xs))    ;
     }
     if ($res instanceof Capture) {
@@ -523,7 +502,9 @@ class Env
 {
     function __construct($parent)
     {
-        if ($parent !== NONE) { $this->bindings = dict($parent->bindings); }
+        if ($parent !== NONE) {
+            $this->bindings = dict($parent->bindings);
+        }
         else { $this->bindings = []; }
     }
     function __toString() { return str($this->bindings); }
@@ -689,9 +670,9 @@ function getElement($obj, $i)
         }
     }
 }
-function run($x, $environment)
+function run($x, $e)
 {
-    return evaluate($environment, NONE, NONE, parse_json_value($x));
+    return evaluate($e, NONE, NONE, parse_json_value($x));
 }
 # Primitives
 $primitives = ["BEGIN",
@@ -824,11 +805,11 @@ $primitives = ["BEGIN",
 ];
 */
 # Init 
-$environment = make_env();
-bind($environment, new Sym("def"), new Def());
-bind($environment, new Sym("begin"), new Begin());
+$e = make_env();
+bind($e, new Sym("def"), new Def());
+bind($e, new Sym("begin"), new Begin());
 # API
-run($primitives, $environment);
+run($primitives, $e);
 
 /*
 if __name__ == '__main__':
@@ -857,4 +838,4 @@ if __name__ == '__main__':
     # https://raw.github.com/manuel/wat-js/master/wat.js
 */
 //$program = ['begin', ['def','x',10], ['*', 'x', ['*','x','x']]];
-//run($program, $environment);
+//run($program, $e);
