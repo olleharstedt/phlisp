@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * https://www.braveclojure.com/writing-macros/
+ */
+
 function _sequential_Q($seq) { return _list_Q($seq) or _vector_Q($seq); }
 // Scalars
 function _nil_Q($obj) { return $obj === NULL; }
@@ -268,8 +272,6 @@ function read_form($reader) {
     case 'php/': throw new Exception("No");
     case ')': throw new Exception("unexpected ')'");
     case '(': return read_list($reader);
-    case ']': throw new Exception("unexpected ']'");
-    case '[': return read_list($reader, '_vector', '[', ']');
     default:  return read_atom($reader);
     }
 }
@@ -391,6 +393,7 @@ class Env {
 // TODO: Don't need exceptions
 function mal_throw($obj) { throw new _Error($obj); }
 
+// TODO: ?
 function str() {
     $ps = array_map(function ($obj) { return _pr_str($obj, False); },
                     func_get_args());
@@ -727,7 +730,7 @@ function MAL_EVAL($ast, $env) {
     $a0 = $ast[0];
     $a0v = (_symbol_Q($a0) ? $a0->value : $a0);
     switch ($a0v) {
-    case "def!":
+    case "def":
         $res = MAL_EVAL($ast[2], $env);
         return $env->set($ast[1], $res);
     case "let*":
@@ -746,7 +749,7 @@ function MAL_EVAL($ast, $env) {
     case "quasiquote":
         $ast = quasiquote($ast[1]);
         break; // Continue loop (TCO)
-    case "defmacro!":
+    case "defmacro":
         $func = MAL_EVAL($ast[2], $env);
         $func = _function('MAL_EVAL', 'native', $func->ast, $func->env, $func->params);
         $func->ismacro = true;
@@ -805,7 +808,7 @@ for ($i=2; $i < count($argv); $i++) {
 $repl_env->set(_symbol('*ARGV*'), $_argv);
 
 // core.mal: defined using the language itself
-rep("(def! not (fn* (a) (if a false true)))");
-rep("(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))");
+rep("(def not (fn* (a) (if a false true)))");
+rep("(defmacro cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))");
 
 rep(file_get_contents($argv[1]));
