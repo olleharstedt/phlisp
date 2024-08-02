@@ -690,7 +690,7 @@ function macroexpand($ast, $env) {
     return $ast;
 }
 
-function eval_ast($ast, $env) {
+function eval_ast($ast, $env, $sandboxed) {
     if (_symbol_Q($ast)) {
         return $env->get($ast);
     } elseif (_sequential_Q($ast)) {
@@ -699,12 +699,12 @@ function eval_ast($ast, $env) {
         } else {
             $el = _vector();
         }
-        foreach ($ast as $a) { $el[] = MAL_EVAL($a, $env); }
+        foreach ($ast as $a) { $el[] = MAL_EVAL($a, $env, $sandboxed); }
         return $el;
     } elseif (_hash_map_Q($ast)) {
         $new_hm = _hash_map();
         foreach (array_keys($ast->getArrayCopy()) as $key) {
-            $new_hm[$key] = MAL_EVAL($ast[$key], $env);
+            $new_hm[$key] = MAL_EVAL($ast[$key], $env, $sandboxed);
         }
         return $new_hm;
     } else {
@@ -712,17 +712,17 @@ function eval_ast($ast, $env) {
     }
 }
 
-function MAL_EVAL($ast, $env) {
+function MAL_EVAL($ast, $env, $sandboxed = true) {
     while (true) {
 
     if (!_list_Q($ast)) {
-        return eval_ast($ast, $env);
+        return eval_ast($ast, $env, $sandboxed);
     }
 
     // apply list
     $ast = macroexpand($ast, $env);
     if (!_list_Q($ast)) {
-        return eval_ast($ast, $env);
+        return eval_ast($ast, $env, $sandboxed);
     }
     if ($ast->count() === 0) {
         return $ast;
@@ -732,6 +732,7 @@ function MAL_EVAL($ast, $env) {
     $a0v = (_symbol_Q($a0) ? $a0->value : $a0);
     switch ($a0v) {
     case "def":
+        if ($sandboxed) throw new Exception("Sandboxed");
         $res = MAL_EVAL($ast[2], $env);
         return $env->set($ast[1], $res);
     case "let*":
@@ -751,6 +752,7 @@ function MAL_EVAL($ast, $env) {
         $ast = quasiquote($ast[1]);
         break; // Continue loop (TCO)
     case "defmacro":
+        if ($sandboxed) throw new Exception("Sandboxed");
         $func = MAL_EVAL($ast[2], $env);
         $func = _function('MAL_EVAL', 'native', $func->ast, $func->env, $func->params);
         $func->ismacro = true;
@@ -758,7 +760,7 @@ function MAL_EVAL($ast, $env) {
     case "macroexpand":
         return macroexpand($ast[1], $env);
     case "do":
-        eval_ast($ast->slice(1, -1), $env);
+        eval_ast($ast->slice(1, -1), $env, $sandboxed);
         $ast = $ast[count($ast)-1];
         break; // Continue loop (TCO)
     case "if":
@@ -771,9 +773,9 @@ function MAL_EVAL($ast, $env) {
         }
         break; // Continue loop (TCO)
     case "fn*":
-        return _function( 'MAL_EVAL', 'native', $ast[2], $env, $ast[1]);
+        return _function('MAL_EVAL', 'native', $ast[2], $env, $ast[1]);
     default:
-        $el = eval_ast($ast, $env);
+        $el = eval_ast($ast, $env, $sandboxed);
         $f = $el[0];
         $args = array_slice($el->getArrayCopy(), 1);
         if ($f->type === 'native') {
@@ -790,9 +792,9 @@ function MAL_EVAL($ast, $env) {
 
 // repl
 $repl_env = new Env(NULL);
-function rep($str) {
+function rep($str, $sandboxed = false) {
     global $repl_env;
-    return _pr_str(MAL_EVAL(READ($str), $repl_env), true);
+    return _pr_str(MAL_EVAL(READ($str), $repl_env, $sandboxed), true);
 }
 
 // core.php: defined using PHP
@@ -800,7 +802,7 @@ foreach ($core_ns as $k=>$v) {
     $repl_env->set(_symbol($k), _function($v));
 }
 $repl_env->set(_symbol('eval'), _function(function($ast) {
-    global $repl_env; return MAL_EVAL($ast, $repl_env);
+    global $repl_env; return MAL_EVAL($ast, $repl_env, $sandboxed = false );
 }));
 $_argv = _list();
 for ($i=2; $i < count($argv); $i++) {
@@ -812,6 +814,32 @@ $repl_env->set(_symbol('*ARGV*'), $_argv);
 rep("(def not (fn* (a) (if a false true)))");
 rep("(defmacro cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))");
 
-rep(file_get_contents($argv[1]));
+rep(file_get_contents("lib.lisp"));
+rep("(do " . file_get_contents($argv[1]) . ")", true);
 
-var_dump($repl_env->data['report']);
+print_r($repl_env->data['_report']);
+
+/*
+(report
+    (title "Article report")
+    (table "articles")
+    (columns
+        (column
+            (title "Article number")
+            (select "article_id")
+        )
+        (column
+            (title "Margin of profit")
+            (css "right-align")
+            (select (round (* 100 (- 1 (/ purchase_price selling_price))) 2))
+            (as "margin")
+        )
+    )
+    (totals
+        (total
+            (for "margin")
+            (do (/ (sum "margin") (count rows)))
+        )
+    )
+)
+*/
