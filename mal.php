@@ -2,6 +2,8 @@
 
 /**
  * https://www.braveclojure.com/writing-macros/
+ *
+ * @TODO Don't need with-meta?
  */
 
 function _sequential_Q($seq) { return _list_Q($seq) or _vector_Q($seq); }
@@ -197,7 +199,7 @@ function _real_token($s) {
 }
 
 function tokenize($str) {
-    $pat = "/[\s,]*(php\/|~@|[\[\]{}()'`~^@]|\"(?:\\\\.|[^\\\\\"])*\"?|;.*|[^\s\[\]{}('\"`,;)]*)/";
+    $pat = "/[\s]*(php\/|[\[\]{}()'`,^@]|\"(?:\\\\.|[^\\\\\"])*\"?|;.*|[^\s\[\]{}('\"`,;)]*)/";
     preg_match_all($pat, $str, $matches);
     return array_values(array_filter($matches[1], '_real_token'));
 }
@@ -253,10 +255,10 @@ function read_form($reader) {
     case '`':  $reader->next();
                return _list(_symbol('quasiquote'),
                                read_form($reader));
-    case '~':  $reader->next();
+    case ',':  $reader->next();
                return _list(_symbol('unquote'),
                                read_form($reader));
-    case '~@': $reader->next();
+    case ',@': $reader->next();
                return _list(_symbol('splice-unquote'),
                                read_form($reader));
     case '^':  $reader->next();
@@ -713,7 +715,6 @@ function eval_ast($ast, $env) {
 function MAL_EVAL($ast, $env) {
     while (true) {
 
-    #echo "MAL_EVAL: " . _pr_str($ast) . "\n";
     if (!_list_Q($ast)) {
         return eval_ast($ast, $env);
     }
@@ -812,3 +813,5 @@ rep("(def not (fn* (a) (if a false true)))");
 rep("(defmacro cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))");
 
 rep(file_get_contents($argv[1]));
+
+var_dump($repl_env->data['report']);

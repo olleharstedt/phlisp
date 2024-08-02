@@ -15,4 +15,11 @@
   (set x "a" 12)
   (println (nil? x))
   (println (get x "a"))
-  )
+
+  (def report
+       `(columns
+          (column
+            ,(+ 1 2))
+          )
+       )
+)
