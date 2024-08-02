@@ -1,12 +1,14 @@
 <?php
 // Framework: PHP
 
+define("NONE", -9999999);
+
 # Objects
 class Nil
 {
     function wat_match($e, $rhs)
     {
-        if ($rhs !== $NIL) { fail("NIL expected, but got: " . json_encode($rhs)); }
+        if ($rhs instanceof Nil) { fail("NIL expected, but got: " . json_encode($rhs)); }
     }
     function __toString()
     {
@@ -18,16 +20,10 @@ $NIL = new Nil();
 
 class Ign
 {
-    function wat_match($e, $rhs)
-    {
-    }
-    function __toString()
-    {
-        return '#ignore';
-    }
+    function wat_match($e, $rhs) { }
+    function __toString() { return '#ignore'; }
 }
 $IGN = new Ign();
-
 
 function fail($m)
 {
@@ -37,7 +33,7 @@ function fail($m)
 function quote($object) {
     try {
         return '"' . $object . '"';
-    } catch (TypeError $e) {
+    } catch (Throwable $e) {
         return strval($object);
     }
 }
@@ -60,7 +56,7 @@ class Capture {
     public function __construct($prompt, $handler) {
         $this->prompt = $prompt;
         $this->handler = $handler;
-        $this->k = null;
+        $this->k = NONE;
     }
 }
 
@@ -93,7 +89,7 @@ class Sym {
     }
 
     public function wat_match($e, $rhs) {
-        if ($e === null) {
+        if ($e === NONE) {
             fail("undefined argument: " . $this->name);
         }
         $e->bindings[$this->name] = $rhs;
@@ -122,7 +118,7 @@ class Cons {
         if (($k instanceof Continuation)) {
             $op = continueFrame($k, $f);
         } else {
-            $op = evaluate($e, null, null, $this->car);
+            $op = evaluate($e, NONE, NONE, $this->car);
         }
         if ($op instanceof Capture) {
             $other = $this;
@@ -131,7 +127,7 @@ class Cons {
             });
             return $op;
         }
-        return combine($e, null, null, $op, $this->cdr);
+        return combine($e, NONE, NONE, $op, $this->cdr);
     }
 
     public function wat_match($e, $rhs) {
@@ -144,9 +140,8 @@ class Cons {
     }
 
     private function _lst() {
-        global $NIL;
         $car = (string)$this->car;
-        if ($this->cdr === $NIL) {
+        if ($this->cdr instanceof Nil) {
             return $car;
         }
         try {
@@ -232,14 +227,14 @@ class Apv {
 
 function evalArgs($environment, $continuation, $function, $todo, $done) {
     global $NIL;
-    if ($todo === $NIL) {
+    if ($todo instanceof Nil) {
         return reverse_list($done);
     }
 
     if ($continuation instanceof Continuation) {
         $arg = continueFrame($continuation, $function);
     } else {
-        $arg = evaluate($environment, null, null, car($todo));
+        $arg = evaluate($environment, NONE, NONE, car($todo));
     }
 
     if ($arg instanceof Capture) {
@@ -268,7 +263,7 @@ class Def {
         if ($continuation instanceof Continuation) {
             $value = continueFrame($continuation, $function);
         } else {
-            $value = evaluate($environment, null, null, elt($object, 1));
+            $value = evaluate($environment, NONE, NONE, elt($object, 1));
         }
 
         if ($value instanceof Capture) {
@@ -298,7 +293,7 @@ class Begin
 {
     function wat_combine($e, $k, $f, $o) {
         global $NIL;
-        if ($o === $NIL) { return null; }
+        if ($o instanceof Nil) { return null; }
         else { return begin($e, $k, $f, $o); }
     }
     function __toString() { return 'Begin'; }
@@ -310,14 +305,14 @@ function begin($e, $k, $f, $xs) {
         $res = continueFrame($k, $f);
     }
     else { 
-        $res = evaluate($e, null, null, car($xs))    ;
+        $res = evaluate($e, NONE, NONE, car($xs))    ;
     }
     if ($res instanceof Capture) {
         captureFrame($res, fn ($k, $f) => begin($e, $k, $f, $xs));
         return $res;
     }
     $kdr = cdr($xs);
-    if ($kdr === $NIL) { return $res; }
+    if ($kdr instanceof Nil) { return $res; }
     else { return begin($e, null, null, $kdr); }
 }
 
@@ -326,13 +321,13 @@ class _If
     function wat_combine($e, $k, $f, $o) {
         if ($k instanceof Continuation) {
             $test = continueFrame($k, $f);
-        } else { $test = evaluate($e, null, null, elt($o, 0)); }
+        } else { $test = evaluate($e, NONE, NONE, elt($o, 0)); }
         if ($test instanceof Capture) {
             captureFrame($test, fn($k, $f) => $this->wat_combine($e, $k, $f, $o));
             return $test;
         }
-        if ($test) { return evaluate($e, null, null, elt($o, 1)); }
-        else {    return evaluate($e, null, null, elt($o, 2)); }
+        if ($test) { return evaluate($e, NONE, NONE, elt($o, 1)); }
+        else {    return evaluate($e, NONE, NONE, elt($o, 2)); }
     }
 }
 
@@ -343,7 +338,7 @@ class __Loop
         $first = true;
         while (true) {
             if ($first && ($k instanceof Continuation)) { $res = continueFrame($k, $f); }
-            else { $res = evaluate($e, null, null, elt($o, 0)); }
+            else { $res = evaluate($e, NONE, NONE, elt($o, 0)); }
             $first = false;
             if ($res instanceof Capture) {
                 captureFrame($res, fn($k, $f) => $this->wat_combine($e, $k, $f, $o));
@@ -381,7 +376,7 @@ class Finally()
         prot, cleanup  = elt(o, 0), elt(o, 1)
         try:
             if (k instanceof Continuation): res = continueFrame(k, f)
-            else: res = evaluate(e, null, null, prot)
+            else: res = evaluate(e, NONE, NONE, prot)
             if (res instanceof Capture):
                 captureFrame(res, lambda k, f: $this->wat_combine(e, k, f, o))
         finally:                
@@ -393,7 +388,7 @@ class Finally()
 function doCleanup(e, k, f, cleanup, res)
 {
     if (k instanceof Continuation): fres = continueFrame(k, f)
-    else: fres = evaluate(e, null, null, cleanup)
+    else: fres = evaluate(e, NONE, NONE, cleanup)
     if (fres instanceof Capture):
         captureFrame(fres, lambda k,f: doCleanup(e, k, f, cleanup, res))
         return fres
@@ -411,12 +406,12 @@ class __PushPrompt
         $prompt = elt($o, 0);
         $th = elt($o, 1);
         if ($k instanceof Continuation) { $res = continueFrame($k, $f); }
-        else { $res = combine($e, null, null, $th, $NIL); }
+        else { $res = combine($e, NONE, NONE, $th, $NIL); }
         if ($res instanceof Capture) {
             if ($res->prompt == $prompt) {
                 $continuation = $res->k;
                 $handler = $res->handler;
-                return combine($e, null, null, $handler, cons($continuation, $NIL));
+                return combine($e, NONE, NONE, $handler, cons($continuation, $NIL));
             }
             else {
                 captureFrame($res, fn($k, $f) => $this->wat_combine($e, $k, $f, $o));
@@ -437,7 +432,7 @@ class __TakeSubcont
         $prompt = elt($o, 0);
         $handler = elt($o, 1);
         $cap = Capture($prompt, $handler);
-        captureFrame($cap, fn( $k, $thef) => combine($e, null, null, $thef, $NIL));
+        captureFrame($cap, fn( $k, $thef) => combine($e, NONE, NONE, $thef, $NIL));
         return $cap;
     }
 }
@@ -492,7 +487,7 @@ class __DLet
         $dv->val = $val
         try:
             if ($k instanceof Continuation): $res = continueFrame($k, $f)
-            else: $res = combine($e, null, null, $th, $NIL)
+            else: $res = combine($e, NONE, NONE, $th, $NIL)
             if (res instanceof Capture):
                 captureFrame(res, lambda k, f: $this->wat_combine(e, k, f, o))
             return res
@@ -528,13 +523,13 @@ class Env
 {
     function __construct($parent)
     {
-        if ($parent !== null) { $this->bindings = dict($parent->bindings); }
+        if ($parent !== NONE) { $this->bindings = dict($parent->bindings); }
         else { $this->bindings = []; }
     }
     function __toString() { return str($this->bindings); }
 }
     
-function make_env($parent = null)
+function make_env($parent = NONE)
 {
     return new Env($parent);
 }
@@ -569,9 +564,10 @@ function list_star()
     return $c;
 }
 
-function array_to_list($array, $end = null)
+function array_to_list($array, $end = NONE)
 {
     global $NIL;
+    // c = end and end or NIL
     $c = $end ?? $NIL;
     $i = count($array);
     while ($i > 0) {
@@ -585,7 +581,7 @@ function list_to_array($c)
 {
     global $NIL;
     $res = [];
-    while ($c != $NIL) {
+    while ($c instanceof Nil) {
         $res->append(car($c));
         $c = cdr($c);
     }
@@ -596,7 +592,7 @@ function reverse_list($l)
 {
     global $NIL;
     $res = $NIL;
-    while ($l != $NIL) {
+    while ($l instanceof Nil) {
         $res = cons(car($l), $res);
         $l = cdr($l);
     }
@@ -671,7 +667,7 @@ function py_invoke($obj, $method_name, &$args)
 function py_callback($cmb)
 {
     $f = function($args) { 
-        return combine(make_env(), null, null, cmb, array_to_list($args));
+        return combine(make_env(), NONE, NONE, cmb, array_to_list($args));
     };
     return $f;
 }
@@ -695,7 +691,7 @@ function getElement($obj, $i)
 }
 function run($x, $environment)
 {
-    return evaluate($environment, null, null, parse_json_value($x));
+    return evaluate($environment, NONE, NONE, parse_json_value($x));
 }
 # Primitives
 $primitives = ["BEGIN",
