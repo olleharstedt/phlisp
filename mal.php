@@ -1,6 +1,7 @@
 <?php
 
 // General functions
+// TODO: Just use PHP = instead?
 function _equal_Q($a, $b) {
     $ota = gettype($a) === "object" ? get_class($a) : gettype($a);
     $otb = gettype($b) === "object" ? get_class($b) : gettype($b);
@@ -35,9 +36,9 @@ function _nil_Q($obj) { return $obj === NULL; }
 function _true_Q($obj) { return $obj === true; }
 function _false_Q($obj) { return $obj === false; }
 function _string_Q($obj) {
+    // TODO: chr?
     return is_string($obj) && strpos($obj, chr(0x7f)) !== 0;
 }
-function _number_Q($obj) { return is_int($obj); }
 
 // Symbols
 class SymbolClass {
@@ -104,8 +105,6 @@ function _function($func, $type='platform',
                    $ast=NULL, $env=NULL, $params=NULL, $ismacro=False) {
     return new FunctionClass($func, $type, $ast, $env, $params, $ismacro);
 }
-function _function_Q($obj) { return $obj instanceof FunctionClass; }
-function _fn_Q($obj) { return $obj instanceof Closure; }
 
 // Parent class of list, vector
 // http://www.php.net/manual/en/class.arrayobject.php
@@ -121,7 +120,6 @@ class SeqClass extends ArrayObject {
         return $sc;
     }
 }
-
 
 // Lists
 class ListClass extends SeqClass {
@@ -310,8 +308,6 @@ function read_form($reader) {
 
     case ')': throw new Exception("unexpected ')'");
     case '(': return read_list($reader);
-    case ']': throw new Exception("unexpected ']'");
-    case '[': return read_list($reader, '_vector', '[', ']');
     case '}': throw new Exception("unexpected '}'");
     case '{': return read_hash_map($reader);
 
@@ -368,7 +364,7 @@ function _pr_str($obj, $print_readably=True) {
         return $obj->value;
     } elseif (_atom_Q($obj)) {
         return "(atom " . _pr_str($obj->value, $print_readably) . ")";
-    } elseif (_function_Q($obj)) {
+    } elseif ($obj instanceof FunctionClass) {
         return "(fn* [...] ...)";
     } elseif (is_callable($obj)) {  // only step4 and below
         return "#<function ...>";
@@ -433,14 +429,8 @@ class Env {
 }
 
 // Error/Exception functions
+// TODO: Don't need exceptions
 function mal_throw($obj) { throw new _Error($obj); }
-
-// String functions
-function pr_str() {
-    $ps = array_map(function ($obj) { return _pr_str($obj, True); },
-                    func_get_args());
-    return implode(" ", $ps);
-}
 
 function str() {
     $ps = array_map(function ($obj) { return _pr_str($obj, False); },
@@ -642,22 +632,18 @@ $core_ns = array(
     'nil?'=>   function ($a) { return _nil_Q($a); },
     'true?'=>  function ($a) { return _true_Q($a); },
     'false?'=> function ($a) { return _false_Q($a); },
-    'number?'=> function ($a) { return _number_Q($a); },
+    'number?'=> function ($a) { return is_int($a); },
     'symbol'=> function () { return call_user_func_array('_symbol', func_get_args()); },
     'symbol?'=> function ($a) { return _symbol_Q($a); },
     'keyword'=> function () { return call_user_func_array('_keyword', func_get_args()); },
     'keyword?'=> function ($a) { return _keyword_Q($a); },
 
     'string?'=> function ($a) { return _string_Q($a); },
-    'fn?'=>    function($a) { return _fn_Q($a) || (_function_Q($a) && !$a->ismacro ); },
-    'macro?'=> function($a) { return _function_Q($a) && $a->ismacro; },
-    'pr-str'=> function () { return call_user_func_array('pr_str', func_get_args()); },
+    'fn?'=>    function($a) { return $a instanceof Closure || ($a instanceof FunctionClass && !$a->ismacro ); },
+    'macro?'=> function($a) { return $a instanceof FunctionClass && $a->ismacro; },
     'str'=>    function () { return call_user_func_array('str', func_get_args()); },
     'prn'=>    function () { return call_user_func_array('prn', func_get_args()); },
     'println'=>function () { return call_user_func_array('println', func_get_args()); },
-    'readline'=>function ($a) { return mal_readline($a); },
-    'read-string'=>function ($a) { return read_str($a); },
-    'slurp'=>  function ($a) { return file_get_contents($a); },
     '<'=>      function ($a, $b) { return $a < $b; },
     '<='=>     function ($a, $b) { return $a <= $b; },
     '>'=>      function ($a, $b) { return $a > $b; },
@@ -666,7 +652,6 @@ $core_ns = array(
     '-'=>      function ($a, $b) { return intval($a - $b,10); },
     '*'=>      function ($a, $b) { return intval($a * $b,10); },
     '/'=>      function ($a, $b) { return intval($a / $b,10); },
-    'time-ms'=>function () { return time_ms(); },
 
     'list'=>   function () { return call_user_func_array('_list', func_get_args()); },
     'list?'=>  function ($a) { return _list_Q($a); },
@@ -861,16 +846,11 @@ function MAL_EVAL($ast, $env) {
     }
 }
 
-// print
-function MAL_PRINT($exp) {
-    return _pr_str($exp, True);
-}
-
 // repl
 $repl_env = new Env(NULL);
 function rep($str) {
     global $repl_env;
-    return MAL_PRINT(MAL_EVAL(READ($str), $repl_env));
+    return _pr_str(MAL_EVAL(READ($str), $repl_env), true);
 }
 
 // core.php: defined using PHP
@@ -888,9 +868,6 @@ $repl_env->set(_symbol('*ARGV*'), $_argv);
 
 // core.mal: defined using the language itself
 rep("(def! not (fn* (a) (if a false true)))");
-rep("(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \"\nnil)\")))))");
 rep("(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))");
 
-if (count($argv) > 1) {
-    rep('(load-file "' . $argv[1] . '")');
-}
+rep(file_get_contents($argv[1]));
