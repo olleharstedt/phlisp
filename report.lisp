@@ -1,10 +1,12 @@
 (title "Article report")
 (table "articles")
 (column 
-  '(title "Art id")
-  '(select "article_id")
-  )
+  (list
+    '(title "Art id")
+    '(select "article_id")
+    ))
 (column 
-  '(title "Price")
-  '(select "price")
-  )
+  (list
+    '(title "Price")
+    '(select "price")
+    ))
