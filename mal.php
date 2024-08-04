@@ -6,6 +6,35 @@
  * @TODO Don't need with-meta?
  */
 
+// General functions
+function _equal_Q($a, $b) {
+    $ota = gettype($a) === "object" ? get_class($a) : gettype($a);
+    $otb = gettype($b) === "object" ? get_class($b) : gettype($b);
+    if (!($ota === $otb or (_sequential_Q($a) and _sequential_Q($b)))) {
+        return false;
+    } elseif (_symbol_Q($a)) {
+        #print "ota: $ota, otb: $otb\n";
+        return $a->value === $b->value;
+    } elseif (_list_Q($a) or _vector_Q($a)) {
+        if ($a->count() !== $b->count()) { return false; }
+        for ($i=0; $i<$a->count(); $i++) {
+            if (!_equal_Q($a[$i], $b[$i])) { return false; }
+        }
+        return true;
+    } elseif (_hash_map_Q($a)) {
+        if ($a->count() !== $b->count()) { return false; }
+        $hm1 = $a->getArrayCopy();
+        $hm2 = $b->getArrayCopy();
+        foreach (array_keys($hm1) as $k) {
+            if (!_equal_Q($hm1[$k], $hm2[$k])) { return false; }
+        }
+        return true;
+    } else {
+        return $a === $b;
+    }
+}
+
+
 function _sequential_Q($seq) { return _list_Q($seq) or _vector_Q($seq); }
 // Scalars
 function _nil_Q($obj) { return $obj === NULL; }
@@ -571,9 +600,11 @@ function swap_BANG($atm, $f) {
     return $atm->value;
 }
 
-// core_ns is namespace of type functions
-$core_ns = array(
-    '='=>      function ($a, $b) { return $a == $b; },
+$repl_env = new Env(NULL);
+
+// core is namespace of type functions
+$core = [
+    '='=>      function ($a, $b) { return _equal_Q($a, $b); },
     'throw'=>  function ($a) { return mal_throw($a); },
     'nil?'=>   function ($a) { return _nil_Q($a); },
     'true?'=>  function ($a) { return _true_Q($a); },
@@ -632,7 +663,8 @@ $core_ns = array(
     'deref'=>  function ($a) { return deref($a); },
     'reset!'=> function ($a, $b) { return reset_BANG($a, $b); },
     'swap!'=>  function () { return call_user_func_array('swap_BANG', func_get_args()); },
-);
+    'setq'=>  function ($a, $b) use ($repl_env) { $repl_env->set($a, $b); },
+];
 
 // read
 function READ($str) {
@@ -732,7 +764,7 @@ function MAL_EVAL($ast, $env, $sandboxed = true) {
     $a0v = (_symbol_Q($a0) ? $a0->value : $a0);
     switch ($a0v) {
     case "def":
-        if ($sandboxed) throw new Exception("Sandboxed");
+        //if ($sandboxed) throw new Exception("Sandboxed");
         $res = MAL_EVAL($ast[2], $env);
         return $env->set($ast[1], $res);
     case "let*":
@@ -752,7 +784,7 @@ function MAL_EVAL($ast, $env, $sandboxed = true) {
         $ast = quasiquote($ast[1]);
         break; // Continue loop (TCO)
     case "defmacro":
-        if ($sandboxed) throw new Exception("Sandboxed");
+        //if ($sandboxed) throw new Exception("Sandboxed");
         $func = MAL_EVAL($ast[2], $env);
         $func = _function('MAL_EVAL', 'native', $func->ast, $func->env, $func->params);
         $func->ismacro = true;
@@ -778,6 +810,9 @@ function MAL_EVAL($ast, $env, $sandboxed = true) {
         $el = eval_ast($ast, $env, $sandboxed);
         $f = $el[0];
         $args = array_slice($el->getArrayCopy(), 1);
+        if (!isset($f->type)) {
+            var_dump($f);
+        }
         if ($f->type === 'native') {
             $ast = $f->ast;
             $env = $f->gen_env($args);
@@ -791,14 +826,13 @@ function MAL_EVAL($ast, $env, $sandboxed = true) {
 }
 
 // repl
-$repl_env = new Env(NULL);
 function rep($str, $sandboxed = false) {
     global $repl_env;
     return _pr_str(MAL_EVAL(READ($str), $repl_env, $sandboxed), true);
 }
 
 // core.php: defined using PHP
-foreach ($core_ns as $k=>$v) {
+foreach ($core as $k => $v) {
     $repl_env->set(_symbol($k), _function($v));
 }
 $repl_env->set(_symbol('eval'), _function(function($ast) {
@@ -817,7 +851,7 @@ rep("(defmacro cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (>
 rep(file_get_contents("lib.lisp"));
 rep("(do " . file_get_contents($argv[1]) . ")", true);
 
-print_r($repl_env->data['_report']);
+//print_r($repl_env->data['_title']);
 
 /*
 (report
