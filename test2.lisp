@@ -1,11 +1,21 @@
 ; CLISP test
 (defun select-helper (ast)
-  (if (null ast)
-    nil
-    (cons
-      (cond
-          (format nil "~A" (first ast))
-          (select-helper (rest ast))))))
+  (cond
+    ((null ast) nil)
+    ((numberp ast) (list (format nil "~A" ast)))
+    ((symbolp ast) (list (symbol-name ast)))
+    ; ast is a cons
+    ((consp ast)
+     ;; match on first node
+     (let ((node (first ast)))
+       (cond
+         ((symbolp node) (list "QWE"))
+         ((= ast "+") (list "ASD"))
+         ((null 
+            (cons (car ast)
+                  (mapcar #'select-helper (cdr ast))))
+          )
+    (t (error "Unknown node type: ~A" ast)))))))
 
 (defmacro select (ast)
   `(select-helper ',ast))
