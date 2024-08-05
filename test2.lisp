@@ -43,3 +43,5 @@
 
 (print (select (round (* 100 (- 1 (/ purchase_price selling_price))) 2)))
 ; (print (select (1 2 3)))
+
+; https://lispcookbook.github.io/cl-cookbook/macros.html for x in list macro
