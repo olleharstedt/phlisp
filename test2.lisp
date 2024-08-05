@@ -9,7 +9,15 @@
      ;; match on first node
      (let ((node (first ast)))
        (cond
-         ((symbolp node) (list "QWE"))
+         ; Continue as normal if node is number
+         ((numberp node)
+            (cons (car ast)
+                  (mapcar #'select-helper (cdr ast))))
+         ((symbolp node)
+          (cond 
+            ((= (symbol-name node) "SELECT") (list "QWE"))
+            (t (error "Moo"))))
+
          ((= ast "+") (list "ASD"))
          ((null 
             (cons (car ast)
