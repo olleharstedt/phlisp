@@ -26,6 +26,14 @@
 
   (println (string-concat '(1 2 "qwe")))
 
+  ; Helper function for prefix operators like ROUND()
+  (def pre-operator (fn* (node ast)
+    (list (string-concat (list (string-concat (symbol-name node) "(") (select-helper (second ast)) "," (select-helper (third ast)) ")")))))
+
+  ; Helper function for infix operators like - or +
+  (def in-operator (fn* (node ast)
+    (list (string-concat (list (select-helper (second ast)) (symbol-name node) (select-helper (third ast)))))))
+
   (def select-helper
        (fn* (ast)
             (cond
@@ -66,5 +74,5 @@
   (defmacro select (fn* (ast)
     `(select-helper ',ast)))
 
-   (println (select (+ 1 2)))
+   (println (select nil))
 )
