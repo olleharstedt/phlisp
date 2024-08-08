@@ -19,15 +19,5 @@
   (defmacro select (fn* (ast)
     (list ast)))
 
-  (def report
-       `(columns
-          (column
-            (title "Article")
-            ,(select hello)
-            ; (select (round (* 100 (- 1 (/ purchase_price selling_price))) 2))
-            ,(+ 1 2)
-            ,(infix (2 + 3))
-            )
-          )
-       )
+  (println (string-concat '(1 2 "qwe")))
 )

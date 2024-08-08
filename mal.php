@@ -44,6 +44,18 @@ function _string_Q($obj) {
     // TODO: chr?
     return is_string($obj) && strpos($obj, chr(0x7f)) !== 0;
 }
+function string_concat($args)
+{
+    $s = "";
+    foreach ($args as $arg) {
+        if (_sequential_Q($arg)) {
+            $s .= (string) $arg[1];
+        } else {
+            $s .= (string) $arg;
+        }
+    }
+    return $s;
+}
 
 // Symbols
 class SymbolClass {
@@ -642,6 +654,7 @@ $core = [
     'sequential?'=> function ($a) { return _sequential_Q($a); },
     'cons'=>   function ($a, $b) { return cons($a, $b); },
     'concat'=> function () { return call_user_func_array('concat', func_get_args()); },
+    'string-concat'=> function () { return call_user_func_array('string_concat', func_get_args()); },
     'vec'=>    function ($a) { return vec($a, $b); },
     'nth'=>    function ($a, $b) { return nth($a, $b); },
     'first'=>  function ($a) { return first($a); },
