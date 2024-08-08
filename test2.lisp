@@ -15,10 +15,8 @@
                   (mapcar #'select-helper (cdr ast))))
          ((symbolp node)
           (cond 
-            ((= (symbol-name node) "SELECT") (list "QWE"))
             (t (error "Moo"))))
-
-         ((= ast "+") (list "ASD"))
+         ((equal ast "+") (list "ASD"))
          ((null 
             (cons (car ast)
                   (mapcar #'select-helper (cdr ast))))
@@ -41,7 +39,8 @@
 
 ; (test '(1 2 3))
 
-(print (select (round (* 100 (- 1 (/ purchase_price selling_price))) 2)))
-; (print (select (1 2 3)))
+; (print (select (round (* 100 (- 1 (/ purchase_price selling_price))) 2)))
+; (print (select (round)))
+(print (equal "sd" "asd"))
 
 ; https://lispcookbook.github.io/cl-cookbook/macros.html for x in list macro
