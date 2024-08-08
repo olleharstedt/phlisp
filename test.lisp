@@ -41,7 +41,7 @@
                    ; Continue as normal if node is number
                    ((number? node)
                     (cons (car ast)
-                          (mapcar #'select-helper (cdr ast))))
+                          (map select-helper (rest ast))))
                    ; Not a number
                    ((symbol? node)
                     (cond 
@@ -60,11 +60,11 @@
                    (= ast "+") (list "ASD")
                    (nil?
                       (cons (car ast)
-                            (mapcar #'select-helper (cdr ast))))
+                            (map select-helper (rest ast))))
                    t (error "Unknown node type: ~A" ast))))))
 
   (defmacro select (fn* (ast)
-    `(select-helper ,ast)))
+    `(select-helper ',ast)))
 
-   (println (select 1))
+   (println (select (+ 1 2)))
 )
