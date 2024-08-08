@@ -89,8 +89,7 @@ class FunctionClass {
     public $env = NULL;
     public $params = NULL;
     public $ismacro = False;
-    public function __construct($func, $type,
-                                $ast, $env, $params, $ismacro=False) {
+    public function __construct($func, $type, $ast, $env, $params, $ismacro = false) {
         $this->func = $func;
         $this->type = $type;
         $this->ast = $ast;
@@ -116,8 +115,7 @@ class FunctionClass {
     }
 }
 
-function _function($func, $type='platform',
-                   $ast=NULL, $env=NULL, $params=NULL, $ismacro=False) {
+function _function($func, $type='platform', $ast=NULL, $env=NULL, $params=NULL, $ismacro=False) {
     return new FunctionClass($func, $type, $ast, $env, $params, $ismacro);
 }
 
@@ -290,28 +288,25 @@ function read_list($reader, $constr='_list', $start='(', $end=')') {
 function read_form($reader) {
     $token = $reader->peek();
     switch ($token) {
-    case '\'': $reader->next();
-               return _list(_symbol('quote'),
-                               read_form($reader));
-    case '`':  $reader->next();
-               return _list(_symbol('quasiquote'),
-                               read_form($reader));
-    case ',':  $reader->next();
-               return _list(_symbol('unquote'),
-                               read_form($reader));
-    case ',@': $reader->next();
-               return _list(_symbol('splice-unquote'),
-                               read_form($reader));
-    case '^':  $reader->next();
-               $meta = read_form($reader);
-               return _list(_symbol('with-meta'),
-                               read_form($reader),
-                               $meta);
-
-    case '@':  $reader->next();
-               return _list(_symbol('deref'),
-                               read_form($reader));
-
+    case '\'':
+        $reader->next();
+        return _list(_symbol('quote'), read_form($reader));
+    case '`':
+        $reader->next();
+        return _list(_symbol('quasiquote'), read_form($reader));
+    case ',': 
+        $reader->next();
+        return _list(_symbol('unquote'), read_form($reader));
+    case ',@': 
+        $reader->next();
+        return _list(_symbol('splice-unquote'), read_form($reader));
+    case '^':  
+        $reader->next();
+        $meta = read_form($reader);
+        return _list(_symbol('with-meta'), read_form($reader), $meta);
+    case '@':  
+        $reader->next();
+        return _list(_symbol('deref'), read_form($reader));
     case 'php/': throw new Exception("No");
     case ')': throw new Exception("unexpected ')'");
     case '(': return read_list($reader);
@@ -434,7 +429,7 @@ class Env {
 
 // Error/Exception functions
 // TODO: Don't need exceptions
-function mal_throw($obj) { throw new _Error($obj); }
+function mal_throw($obj) { throw new Exception($obj); }
 
 // TODO: ?
 function str() {
@@ -617,6 +612,7 @@ $repl_env = new Env(NULL);
 // core is namespace of type functions
 $core = [
     '='=>      function ($a, $b) { return _equal_Q($a, $b); },
+    't'=>      function () { return true; },
     'throw'=>  function ($a) { return mal_throw($a); },
     'nil?'=>   function ($a) { return _nil_Q($a); },
     'true?'=>  function ($a) { return _true_Q($a); },
@@ -654,10 +650,12 @@ $core = [
     'sequential?'=> function ($a) { return _sequential_Q($a); },
     'cons'=>   function ($a, $b) { return cons($a, $b); },
     'concat'=> function () { return call_user_func_array('concat', func_get_args()); },
+    'string'=> function ($a) { return (string) $a; },
     'string-concat'=> function () { return call_user_func_array('string_concat', func_get_args()); },
     'vec'=>    function ($a) { return vec($a, $b); },
     'nth'=>    function ($a, $b) { return nth($a, $b); },
     'first'=>  function ($a) { return first($a); },
+    'car'  =>  function ($a) { return first($a); },
     'second'=>  function ($a) { return second($a); },
     'last'=>  function ($a) { return last($a); },
     'rest'=>   function ($a) { return rest($a); },
@@ -823,9 +821,9 @@ function MAL_EVAL($ast, $env, $sandboxed = true) {
         $el = eval_ast($ast, $env, $sandboxed);
         $f = $el[0];
         $args = array_slice($el->getArrayCopy(), 1);
-        if (!isset($f->type)) {
-            var_dump($f);
-        }
+        // if (!isset($f->type)) {
+            // var_dump($f);
+        // }
         if ($f->type === 'native') {
             $ast = $f->ast;
             $env = $f->gen_env($args);
