@@ -23,9 +23,15 @@
           (cond 
             ; ROUND function
             ((equal (symbol-name node) "ROUND")
-             (list (concat-all-formatted (list "ROUND(" (select-helper (second ast)) "," (select-helper (third ast)) ")"))))
+             (pre-operator node ast))
             ((equal (symbol-name node) "-")
-             (list (concat-all-formatted (list (select-helper (second ast)) " - " (select-helper (third ast))))))
+             (in-operator node ast))
+            ((equal (symbol-name node) "+")
+             (in-operator node ast))
+            ((equal (symbol-name node) "/")
+             (in-operator node ast))
+            ((equal (symbol-name node) "*")
+             (in-operator node ast))
             (t (error (string-concat "ERROR: Unsupported operator: " (symbol-name node))))))
          ((equal ast "+") (list "ASD"))
          ((null 
@@ -33,6 +39,14 @@
                   (mapcar #'select-helper (cdr ast))))
           )
     (t (error "Unknown node type: ~A" ast)))))))
+
+; Helper function for prefix operators like ROUND()
+(defun pre-operator (node ast)
+  (list (concat-all-formatted (list (string-concat (symbol-name node) "(") (select-helper (second ast)) "," (select-helper (third ast)) ")"))))
+
+; Helper function for infix operators like - or +
+(defun in-operator (node ast)
+ (list (concat-all-formatted (list (select-helper (second ast)) (symbol-name node) (select-helper (third ast))))))
 
 (defmacro select (ast)
   `(select-helper ',ast))
@@ -50,7 +64,11 @@
 
 ; (test '(1 2 3))
 
-(print (select (round (* 100 (- 1 (/ purchase_price selling_price))) 2)))
+(print (select (round (* 100 (- 1 (/ "article_purchase_price" "article_selling_price"))) 2)))
 ; (print (select (round (- "article_selling_price" 1) 2)))
 
 ; https://lispcookbook.github.io/cl-cookbook/macros.html for x in list macro
+
+; select ROUND((100)*((1)-((`article_purchase_price`)/(`article_selling_price`)))),(2)) from ipis_article;
+; ("ROUND((100)*((1)-((`article_purchase_price`)/(`article_selling_price`)))),(2))")
+; ROUND(((100)*((1)-((`article_purchase_price`)/(`article_selling_price`)))),(2))
