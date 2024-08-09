@@ -1,6 +1,10 @@
 <?php
 
 /**
+ * Make a lisp
+ * Clojure-based
+ *
+ * https://github.com/kanaka/mal
  * https://www.braveclojure.com/writing-macros/
  *
  * @TODO Don't need with-meta?
@@ -439,8 +443,10 @@ function str() {
 }
 
 function println() {
-    $ps = array_map(function ($obj) { return _pr_str($obj, False); },
-                    func_get_args());
+    $ps = array_map(
+        function ($obj) { return _pr_str($obj, False); },
+        func_get_args()
+    );
     print implode(" ", $ps) . "\n";
     return null;
 }
@@ -628,6 +634,7 @@ $core = [
     'macro?'=> function($a) { return $a instanceof FunctionClass && $a->ismacro; },
     'str'=>    function () { return call_user_func_array('str', func_get_args()); },
     'println'=>function () { return call_user_func_array('println', func_get_args()); },
+    'sprintf'=>function () { return call_user_func_array('sprintf', func_get_args()); },
     '<'=>      function ($a, $b) { return $a < $b; },
     '<='=>     function ($a, $b) { return $a <= $b; },
     '>'=>      function ($a, $b) { return $a > $b; },
