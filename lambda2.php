@@ -159,6 +159,12 @@ class Sexpr extends SexprBase
         switch ($op) {
             case "load":
                 $filename = $this->eval($sexpr->shift());
+                if (!file_exists($filename)) {
+                    $filename .= '.php';
+                }
+                if (!file_exists($filename)) {
+                    throw new Exception('Found no file ' . $filename);
+                }
                 $this->addOp(include($filename));
                 return;
             case "=":
