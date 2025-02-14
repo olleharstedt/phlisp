@@ -24,6 +24,10 @@ ini_set('display_errors', '1');
  * 16:41 < kagevf> olle__: yes .... (1) will look for a function called "1"
  * 16:42 < kagevf> in C like syntax it would be the equivalent of 1 + 2 versus 1() + 2()
  *
+ * 16:55 < olle> Why setq rather than just set, for setting variables?
+ * 16:55 < rpav> olle: because it quotes the name
+ * 16:55 < jbe> because setq takes care of quoting
+ *
  * https://www.gnu.org/software/emacs/manual/html_node/elisp/Expansion.html
  */
 abstract class SexprBase
