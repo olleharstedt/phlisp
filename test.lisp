@@ -76,4 +76,7 @@
     `(select-helper ',ast)))
 
    (println (select nil))
+
+   (def plus (fn* (x) (+ x 1)))
+   (println (map (fn* (x) (+ x 1)) '(1 2 3)))
 )
