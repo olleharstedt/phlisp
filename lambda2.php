@@ -201,9 +201,9 @@ class Sexpr extends SexprBase
                     return $this->eval($branch2);
                 }
             case "concat":
-                $arg1 = $sexpr->shift();
                 $arg2 = $sexpr->shift();
-                return $this->eval($arg1) . $this->eval($arg2);
+                $arg1 = $sexpr->shift();
+                return new Str($this->eval($arg1) . $this->eval($arg2));
                 break;
             case "+":
                 $arg1 = $sexpr->shift();

@@ -3,11 +3,12 @@
 return new CustomOp(
     'echo',
     function($that, $sexpr) {
-        $s = $sexpr->shift();
-        if ($s instanceof Str) {
+        $next = $sexpr->shift();
+        if ($next instanceof Str) {
+            echo $next->s;
+        } else {
+            $s = $this->eval($next);
             echo $s->s;
-            return;
         }
-        throw new Exception('$s is not a string');
     }
 );

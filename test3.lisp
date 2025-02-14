@@ -1,2 +1,3 @@
 (load "echo")
-(echo "hello world")
+(defun say-hello (a b) (echo (concat a b)))
+(say-hello "hello" "world!")
