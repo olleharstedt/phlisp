@@ -60,6 +60,10 @@ abstract class SexprBase
                 $history->push($current);
                 $current = new SplStack();
                 $prev->push($current);
+            } elseif ($char === ')' && $inside_symbol) {
+                $current->push(new Sym($buffer));
+                $buffer = '';
+                $inside_symbol = 0;
             } elseif ($char === ')') {
                 $inside_symbol = 0;
                 if ($buffer) {
