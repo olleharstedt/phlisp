@@ -171,6 +171,19 @@ class Sexpr extends SexprBase
                 }
                 $this->addOp(include($filename));
                 return;
+            case "load-lib":
+                $filename = $this->eval($sexpr->shift());
+                if (!file_exists($filename)) {
+                    $filename .= '.php';
+                }
+                if (!file_exists($filename)) {
+                    throw new Exception('Found no file ' . $filename);
+                }
+                $ops = include($filename);
+                foreach ($ops as $op) {
+                    $this->addOp($op);
+                }
+                return;
             case "=":
                 $branch2 = $sexpr->pop();
                 $branch1 = $sexpr->pop();
